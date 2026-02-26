@@ -27,7 +27,7 @@ var catalogDb = sqlServer
     .AddDatabase(options.CatalogDb)
     .AddSqlCommander();
 
-var catalogSqlproj = builder.AddSqlProject<Projects.CatalogDb>("catalog-sqlproj")
+var catalogSqlproj = builder.AddSqlProject<Projects.CatalogDb>("sqlproj-" + catalogDb.Resource.Name)
     .WithSkipWhenDeployed()
     .WithReference(catalogDb);
 
@@ -35,7 +35,7 @@ var inventoryDb = sqlServer
     .AddDatabase(options.InventoryDb)
     .AddSqlCommander();
 
-var inventorySqlproj = builder.AddSqlProject<Projects.InventoryDb>("inventory-sqlproj")
+var inventorySqlproj = builder.AddSqlProject<Projects.InventoryDb>("sqlproj-" + inventoryDb.Resource.Name)
     .WithSkipWhenDeployed()
     .WithReference(inventoryDb);
 
@@ -73,7 +73,7 @@ static class Extensions
         ArgumentNullException.ThrowIfNull(db);
 
         var commander = db.ApplicationBuilder
-            .AddContainer(name ?? "sql-commander-" + db.Resource.Name, "jerrynixon/sql-commander", imageTag ?? "latest")
+            .AddContainer(name ?? "sqlcmdr-" + db.Resource.Name, "jerrynixon/sql-commander", imageTag ?? "latest")
             .WithImageRegistry("docker.io")
             .WithHttpEndpoint(targetPort: 8080, name: "http")
             .WithEnvironment("ConnectionStrings__db", db)

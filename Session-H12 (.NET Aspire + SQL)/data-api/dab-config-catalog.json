@@ -11,9 +11,17 @@
       "permissions": [
         {
           "role": "anonymous",
-          "actions": ["*"]
+          "actions": ["read"]
         }
-      ]
+      ],
+      "relationships": {
+        "products": {
+          "cardinality": "many",
+          "target.entity": "Product",
+          "source.fields": ["CategoryId"],
+          "target.fields": ["CategoryId"]
+        }
+      }
     },
     "Product": {
       "source": "dbo.Products",

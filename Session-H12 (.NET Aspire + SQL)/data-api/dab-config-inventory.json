@@ -11,9 +11,17 @@
       "permissions": [
         {
           "role": "anonymous",
-          "actions": ["*"]
+          "actions": ["read"]
         }
-      ]
+      ],
+      "relationships": {
+        "inventory": {
+          "cardinality": "many",
+          "target.entity": "Inventory",
+          "source.fields": ["WarehouseId"],
+          "target.fields": ["WarehouseId"]
+        }
+      }
     },
     "Inventory": {
       "source": "dbo.Inventory",
