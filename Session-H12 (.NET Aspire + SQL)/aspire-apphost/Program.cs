@@ -46,7 +46,7 @@ var inventorySqlproj = builder.AddSqlProject<Projects.InventoryDb>("sqlproj-" + 
 // Data API Builder with MCP Inspector
 
 var dabServer = builder
-    .AddDataAPIBuilder("data-api", 4567)
+    .AddDataAPIBuilder("data-api", 4567).WithIconName("Drag")
     .WithConfigFile(options.DabConfig, options.DabCatalogConfig, options.DabInventoryConfig)
     .WithImageTag(options.DabImage)
     .WithEnvironment("CATALOG_CONNECTION_STRING", catalogDb)
@@ -58,17 +58,20 @@ var dabServer = builder
 
 builder.AddDockerfile("web-app-aspnet", "../web-app-aspnet")
     .WithHttpEndpoint(port: 6789, targetPort: 8080, name: "http")
+    .WithIconName("Globe")
     .WithReference(dabServer)
     .WaitFor(dabServer);
 
 builder.AddDockerfile("web-app-react", "../web-app-react")
     .WithHttpEndpoint(port: 7890, targetPort: 3000, name: "http")
+    .WithIconName("Globe")
     .WithReference(dabServer)
     .WithEnvironment("NODE_TLS_REJECT_UNAUTHORIZED", "0")
     .WaitFor(dabServer);
 
 builder.AddDockerfile("web-app-python", "../web-app-python")
     .WithHttpEndpoint(port: 8901, targetPort: 3000, name: "http")
+    .WithIconName("Globe")
     .WithReference(dabServer)
     .WaitFor(dabServer);
 
@@ -78,7 +81,7 @@ var mcpInspector = builder
     .AddMcpInspector("mcp-inspector", options =>
     {
         options.InspectorVersion = "0.20.0";
-    })
+    }).WithIconName("EyeTracking")
     .WithMcpServer(dabServer, transportType: McpTransportType.StreamableHttp)
     .WithParentRelationship(dabServer)
     .WithHttpEndpoint(port: 5678, targetPort: 6274, name: "http")
@@ -97,6 +100,7 @@ static class Extensions
 
         var commander = db.ApplicationBuilder
             .AddContainer(name ?? "sqlcmdr-" + db.Resource.Name, "jerrynixon/sql-commander", imageTag ?? "latest")
+            .WithIconName("EyeTracking")
             .WithImageRegistry("docker.io")
             .WithHttpEndpoint(port: hostPort, targetPort: 8080, name: "http")
             .WithEnvironment("ConnectionStrings__db", db)
