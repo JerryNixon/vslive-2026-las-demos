@@ -289,6 +289,131 @@ Review the list — every file should be legitimate source. If you see `bin/`, `
 
 ---
 
+## Web App Patterns for Aspire
+
+When adding web apps that consume a DAB API through Aspire, follow these patterns.
+
+### Containerize all web apps — never use `AddProject` for frontends
+
+`AddProject` relies on IDE run sessions (C# Dev Kit) which fail silently with the error:
+```
+run session could not be started: IDE returned a response indicating failure
+```
+
+**Always use `AddDockerfile` for web apps**, even ASP.NET ones. This makes all frontends behave identically — as containers with environment-variable-based service discovery.
+
+```csharp
+// ✅ CORRECT — works reliably
+builder.AddDockerfile("web-app-aspnet", "../web-app-aspnet")
+    .WithHttpEndpoint(port: 6789, targetPort: 8080, name: "http")
+    .WithReference(dabServer)
+    .WaitFor(dabServer);
+
+// ❌ WRONG — depends on IDE run session protocol
+builder.AddProject<Projects.WebAppAspnet>("web-app-aspnet")
+    .WithReference(dabServer)
+    .WaitFor(dabServer);
+```
+
+### ASP.NET apps must not use ServiceDiscovery when containerized
+
+When running as a container (not via `AddProject`), Aspire injects `services__<name>__http__0` env vars instead of the `https+http://` scheme that `ServiceDiscovery` resolves. Read env vars directly:
+
+```csharp
+// ✅ CORRECT — reads Aspire-injected env var
+var dabUrl = Environment.GetEnvironmentVariable("services__data-api__http__0")
+    ?? Environment.GetEnvironmentVariable("services__data-api__https__0")
+    ?? "http://localhost:4567";
+builder.Services.AddHttpClient("dab", c => c.BaseAddress = new Uri(dabUrl));
+
+// ❌ WRONG — ServiceDiscovery can't resolve inside a container
+builder.Services.AddServiceDiscovery();
+builder.Services.AddHttpClient("dab", c => c.BaseAddress = new Uri("https+http://data-api"));
+```
+
+Remove the `Microsoft.Extensions.ServiceDiscovery` package reference when containerizing.
+
+### ASP.NET Dockerfile for Aspire
+
+```dockerfile
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+COPY *.csproj .
+RUN dotnet restore
+COPY . .
+RUN dotnet publish -c Release -o /app
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
+WORKDIR /app
+COPY --from=build /app .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "<ProjectName>.dll"]
+```
+
+### Node.js containers must use `http` module, not `fetch`
+
+Node 22's built-in `fetch` (undici) can fail to resolve Aspire's `*.dev.internal` DNS names inside containers, producing `ECONNREFUSED` errors even when the env var is correct. Use Node's core `http` module:
+
+```javascript
+// ✅ CORRECT — reliable DNS resolution in containers
+const http = require("http");
+function httpGet(url) {
+  return new Promise((resolve, reject) => {
+    http.get(url, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch (e) { reject(new Error(`Invalid JSON: ${data.slice(0, 200)}`)); }
+      });
+    }).on('error', reject);
+  });
+}
+
+// ❌ WRONG — undici can fail DNS resolution for *.dev.internal
+const response = await fetch(url);
+```
+
+### Docker cache invalidation
+
+When iterating on container code, Docker may serve a cached `COPY . .` layer with stale files. Signs of this:
+- Container logs show old console output or behavior
+- Env vars are correct in Aspire dashboard but container ignores them
+
+**Fixes:**
+- Add a `.dockerignore` (with at least `node_modules`) to change the build context hash
+- Change any Dockerfile instruction after the `COPY` layer (e.g., add `ENV NODE_ENV=production`) to bust the cache
+- Or use `docker build --no-cache` manually
+
+### Port convention
+
+Assign sequential host ports to all services to keep them memorable. Example pattern:
+
+| Service | Port |
+|---|---|
+| SQL Server | 1234 |
+| SQL Commander (DB 1) | 2345 |
+| SQL Commander (DB 2) | 3456 |
+| Data API Builder | 4567 |
+| MCP Inspector | 5678 |
+| web-app-aspnet | 6789 |
+| web-app-react | 7890 |
+| web-app-python | 8901 |
+
+### Proxy pattern for frontends
+
+All frontend containers follow the same proxy pattern — a lightweight server proxies `/api/*` to DAB using the Aspire-injected env var:
+
+```
+Browser → Frontend Container (:3000 or :8080)
+              → /api/* proxied to → DAB (services__data-api__http__0)
+              → /* serves static files
+```
+
+The env var name is always `services__data-api__http__0` (injected by `.WithReference(dabServer)`).
+
+---
+
 ## Common Pitfalls
 
 ### Folder rename breaks build
@@ -314,6 +439,18 @@ Review the list — every file should be legitimate source. If you see `bin/`, `
 ### Web app shows stale content
 - **Cause:** `config.js` wasn't regenerated after Azure deployment changes
 - **Fix:** Re-run post-provision or manually update `config.js`
+
+### ASP.NET web app fails to start in Aspire
+- **Cause:** `AddProject` depends on IDE run sessions (C# Dev Kit) which can fail silently
+- **Fix:** Switch to `AddDockerfile`, add a Dockerfile, remove `ServiceDiscovery` package, read env vars directly
+
+### Node.js container returns 502 for all API calls
+- **Cause:** Node 22's built-in `fetch` (undici) fails DNS resolution for Aspire's `*.dev.internal` hostnames
+- **Fix:** Replace `fetch` with Node core `http.get` module in the proxy
+
+### Container runs stale code after edits
+- **Cause:** Docker layer caching serves old `COPY . .` result
+- **Fix:** Add `.dockerignore`, change a Dockerfile instruction after `COPY`, or rebuild with `--no-cache`
 
 ### Missing required owner tag
 - **Cause:** `AZURE_OWNER_ALIAS` not set or `owner` not included in `main.bicep` tags

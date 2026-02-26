@@ -8,6 +8,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "aspire-apphost", "aspire-ap
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppHost", "Session-H12 (.NET Aspire + SQL)\aspire-apphost\AppHost.csproj", "{65A83805-655D-C607-6F21-8165E4878954}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "web-app-aspnet", "web-app-aspnet", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebAppAspnet", "Session-H12 (.NET Aspire + SQL)\web-app-aspnet\WebAppAspnet.csproj", "{D4E5F6A7-B8C9-0123-4567-890ABCDEF012}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,6 +22,10 @@ Global
 		{65A83805-655D-C607-6F21-8165E4878954}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{65A83805-655D-C607-6F21-8165E4878954}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{65A83805-655D-C607-6F21-8165E4878954}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D4E5F6A7-B8C9-0123-4567-890ABCDEF012}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D4E5F6A7-B8C9-0123-4567-890ABCDEF012}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D4E5F6A7-B8C9-0123-4567-890ABCDEF012}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D4E5F6A7-B8C9-0123-4567-890ABCDEF012}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -25,6 +33,8 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{BB1149DA-A69E-44A2-3835-626E015A7819} = {93866DC8-01AD-7A0C-E8D4-0C6FF916EB32}
 		{65A83805-655D-C607-6F21-8165E4878954} = {BB1149DA-A69E-44A2-3835-626E015A7819}
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890} = {93866DC8-01AD-7A0C-E8D4-0C6FF916EB32}
+		{D4E5F6A7-B8C9-0123-4567-890ABCDEF012} = {A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6B4842E6-E23E-42C5-94C9-EB36C7A2579C}

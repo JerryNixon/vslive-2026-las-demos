@@ -54,6 +54,26 @@ var dabServer = builder
     .WaitForCompletion(catalogSqlproj)
     .WaitForCompletion(inventorySqlproj);
 
+// Web Apps
+
+builder.AddDockerfile("web-app-aspnet", "../web-app-aspnet")
+    .WithHttpEndpoint(port: 6789, targetPort: 8080, name: "http")
+    .WithReference(dabServer)
+    .WaitFor(dabServer);
+
+builder.AddDockerfile("web-app-react", "../web-app-react")
+    .WithHttpEndpoint(port: 7890, targetPort: 3000, name: "http")
+    .WithReference(dabServer)
+    .WithEnvironment("NODE_TLS_REJECT_UNAUTHORIZED", "0")
+    .WaitFor(dabServer);
+
+builder.AddDockerfile("web-app-python", "../web-app-python")
+    .WithHttpEndpoint(port: 8901, targetPort: 3000, name: "http")
+    .WithReference(dabServer)
+    .WaitFor(dabServer);
+
+// MCP Inspector
+
 var mcpInspector = builder
     .AddMcpInspector("mcp-inspector", options =>
     {
