@@ -7,7 +7,6 @@
 
 # NuGet
 *.nupkg
-**/packages/
 
 # User-specific files
 *.user
