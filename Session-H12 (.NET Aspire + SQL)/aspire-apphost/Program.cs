@@ -75,6 +75,12 @@ builder.AddDockerfile("web-app-python", "../web-app-python")
     .WithReference(dabServer)
     .WaitFor(dabServer);
 
+builder.AddDockerfile("web-app-java", "../web-app-java")
+    .WithHttpEndpoint(port: 9012, targetPort: 3000, name: "http")
+    .WithIconName("Globe")
+    .WithReference(dabServer)
+    .WaitFor(dabServer);
+
 // MCP Inspector
 
 var mcpInspector = builder
@@ -88,7 +94,11 @@ var mcpInspector = builder
     .WithEnvironment("DANGEROUSLY_OMIT_AUTH", "true")
     .WithEnvironment("NODE_TLS_REJECT_UNAUTHORIZED", "0")
     .WaitFor(dabServer)
-    .WithUrls(context => context.Urls.First().DisplayText = "Inspector");
+    .WithUrls(context =>
+    {
+        context.Urls.First().DisplayText = "Inspector";
+        context.Urls.RemoveRange(1, context.Urls.Count - 1);
+    });
 
 await builder.Build().RunAsync();
 
