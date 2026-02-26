@@ -1,0 +1,40 @@
+{
+  "$schema": "https://github.com/Azure/data-api-builder/releases/latest/download/dab.draft.schema.json",
+  "data-source": {
+    "database-type": "mssql",
+    "connection-string": "@env('CATALOG_CONNECTION_STRING')"
+  },
+  "data-source-files": [
+    "dab-config-catalog.json",
+    "dab-config-inventory.json"
+  ],
+  "runtime": {
+    "rest": {
+      "enabled": true,
+      "path": "/api"
+    },
+    "graphql": {
+      "enabled": true,
+      "path": "/graphql"
+    },
+    "host": {
+      "mode": "development",
+      "cors": {
+        "origins": ["*"],
+        "allow-credentials": false
+      }
+    },
+    "mcp": {
+      "enabled": true
+    },
+    "telemetry": {
+      "open-telemetry": {
+        "enabled": true,
+        "service-name": "@env('OTEL_SERVICE_NAME')",
+        "endpoint": "@env('OTEL_EXPORTER_OTLP_ENDPOINT')",
+        "exporter-protocol": "grpc"
+      }
+    }
+  },
+  "entities": {}
+}

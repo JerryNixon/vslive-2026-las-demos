@@ -1,0 +1,38 @@
+{
+  "data-source": {
+    "database-type": "mssql",
+    "connection-string": "@env('CATALOG_CONNECTION_STRING')"
+  },
+  "entities": {
+    "Category": {
+      "source": "dbo.Categories",
+      "rest": true,
+      "graphql": true,
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": ["*"]
+        }
+      ]
+    },
+    "Product": {
+      "source": "dbo.Products",
+      "rest": true,
+      "graphql": true,
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": ["*"]
+        }
+      ],
+      "relationships": {
+        "category": {
+          "cardinality": "one",
+          "target.entity": "Category",
+          "source.fields": ["CategoryId"],
+          "target.fields": ["CategoryId"]
+        }
+      }
+    }
+  }
+}

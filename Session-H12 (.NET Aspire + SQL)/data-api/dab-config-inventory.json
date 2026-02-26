@@ -1,0 +1,38 @@
+{
+  "data-source": {
+    "database-type": "mssql",
+    "connection-string": "@env('INVENTORY_CONNECTION_STRING')"
+  },
+  "entities": {
+    "Warehouse": {
+      "source": "dbo.Warehouses",
+      "rest": true,
+      "graphql": true,
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": ["*"]
+        }
+      ]
+    },
+    "Inventory": {
+      "source": "dbo.Inventory",
+      "rest": true,
+      "graphql": true,
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": ["*"]
+        }
+      ],
+      "relationships": {
+        "warehouse": {
+          "cardinality": "one",
+          "target.entity": "Warehouse",
+          "source.fields": ["WarehouseId"],
+          "target.fields": ["WarehouseId"]
+        }
+      }
+    }
+  }
+}
