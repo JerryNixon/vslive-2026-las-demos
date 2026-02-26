@@ -1,46 +1,99 @@
 {
+  "$schema": "https://github.com/Azure/data-api-builder/releases/download/vmajor.minor.patch/dab.draft.schema.json",
   "data-source": {
     "database-type": "mssql",
     "connection-string": "@env('CATALOG_CONNECTION_STRING')"
   },
   "entities": {
     "Category": {
-      "source": "dbo.Category",
       "description": "Product categories for Star Trek ship models",
-      "rest": true,
-      "graphql": true,
+      "source": {
+        "object": "dbo.Category",
+        "type": "table"
+      },
+      "fields": [
+        {
+          "name": "CategoryId",
+          "description": "Unique identifier for the category",
+          "primary-key": true
+        },
+        {
+          "name": "Name",
+          "description": "Display name of the category",
+          "primary-key": false
+        }
+      ],
+      "graphql": {
+        "enabled": true,
+        "type": {
+          "singular": "Category",
+          "plural": "Categories"
+        }
+      },
+      "rest": {
+        "enabled": true
+      },
       "permissions": [
         {
           "role": "anonymous",
-          "actions": ["read"]
+          "actions": [
+            {
+              "action": "read"
+            }
+          ]
         }
       ],
       "relationships": {
         "products": {
           "cardinality": "many",
           "target.entity": "Product",
-          "source.fields": ["CategoryId"],
-          "target.fields": ["CategoryId"]
+          "source.fields": [
+            "CategoryId"
+          ],
+          "target.fields": [
+            "CategoryId"
+          ]
         }
       }
     },
     "Product": {
-      "source": "dbo.Product",
       "description": "Star Trek ship models available for purchase",
-      "rest": true,
-      "graphql": true,
+      "source": {
+        "object": "dbo.Product",
+        "type": "table",
+        "parameters": [],
+        "key-fields": []
+      },
+      "graphql": {
+        "enabled": true,
+        "type": {
+          "singular": "Product",
+          "plural": "Products"
+        }
+      },
+      "rest": {
+        "enabled": true
+      },
       "permissions": [
         {
           "role": "anonymous",
-          "actions": ["*"]
+          "actions": [
+            {
+              "action": "*"
+            }
+          ]
         }
       ],
       "relationships": {
         "category": {
           "cardinality": "one",
           "target.entity": "Category",
-          "source.fields": ["CategoryId"],
-          "target.fields": ["CategoryId"]
+          "source.fields": [
+            "CategoryId"
+          ],
+          "target.fields": [
+            "CategoryId"
+          ]
         }
       }
     }

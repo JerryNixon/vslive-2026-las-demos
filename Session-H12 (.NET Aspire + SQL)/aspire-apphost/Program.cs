@@ -46,10 +46,9 @@ var inventorySqlproj = builder.AddSqlProject<Projects.InventoryDb>("sqlproj-" + 
 // Data API Builder with MCP Inspector
 
 var dabServer = builder
-    .AddDataAPIBuilder("data-api")
+    .AddDataAPIBuilder("data-api", 4567)
     .WithConfigFile(options.DabConfig, options.DabCatalogConfig, options.DabInventoryConfig)
     .WithImageTag(options.DabImage)
-    .WithHttpEndpoint(port: 4567, targetPort: 5000, name: "http")
     .WithEnvironment("CATALOG_CONNECTION_STRING", catalogDb)
     .WithEnvironment("INVENTORY_CONNECTION_STRING", inventoryDb)
     .WaitForCompletion(catalogSqlproj)
