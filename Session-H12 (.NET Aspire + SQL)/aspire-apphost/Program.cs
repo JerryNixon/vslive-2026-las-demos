@@ -7,9 +7,9 @@ var options = new
 {
     CatalogDb = "CatalogDb",
     InventoryDb = "InventoryDb",
-    DabConfig = Path.Combine("..", "data-api", "dab-config.json"),
-    DabCatalogConfig = Path.Combine("..", "data-api", "dab-config-catalog.json"),
-    DabInventoryConfig = Path.Combine("..", "data-api", "dab-config-inventory.json"),
+    DabConfig = new FileInfo(Path.Combine("..", "data-api", "dab-config.json")),
+    DabCatalogConfig = new FileInfo(Path.Combine("..", "data-api", "dab-config-catalog.json")),
+    DabInventoryConfig = new FileInfo(Path.Combine("..", "data-api", "dab-config-inventory.json")),
     DabImage = "1.7.83-rc",
     SqlCmdrImage = "latest"
 };
@@ -19,34 +19,37 @@ var options = new
 var sqlPassword = builder.AddParameter("sql-password", secret: true);
 
 var sqlServer = builder
-    .AddSqlServer("sql-server", password: sqlPassword)
+    .AddSqlServer("sql-server", password: sqlPassword, port: 1234)
     .WithDataVolume("sql-data")
     .WithLifetime(ContainerLifetime.Persistent);
 
+// CatalogDb with SQL Commander
+
 var catalogDb = sqlServer
     .AddDatabase(options.CatalogDb)
-    .AddSqlCommander();
+    .AddSqlCommander(hostPort: 2345);
 
 var catalogSqlproj = builder.AddSqlProject<Projects.CatalogDb>("sqlproj-" + catalogDb.Resource.Name)
     .WithSkipWhenDeployed()
     .WithReference(catalogDb);
 
+// InventoryDb with SQL Commander
+
 var inventoryDb = sqlServer
     .AddDatabase(options.InventoryDb)
-    .AddSqlCommander();
+    .AddSqlCommander(hostPort: 3456);
 
 var inventorySqlproj = builder.AddSqlProject<Projects.InventoryDb>("sqlproj-" + inventoryDb.Resource.Name)
     .WithSkipWhenDeployed()
     .WithReference(inventoryDb);
 
-var dabConfig1 = new FileInfo(options.DabConfig);
-var dabConfig2 = new FileInfo(options.DabCatalogConfig);
-var dabConfig3 = new FileInfo(options.DabInventoryConfig);
+// Data API Builder with MCP Inspector
 
 var dabServer = builder
     .AddDataAPIBuilder("data-api")
-    .WithConfigFile(dabConfig1, dabConfig2, dabConfig3)
+    .WithConfigFile(options.DabConfig, options.DabCatalogConfig, options.DabInventoryConfig)
     .WithImageTag(options.DabImage)
+    .WithHttpEndpoint(port: 4567, targetPort: 5000, name: "http")
     .WithEnvironment("CATALOG_CONNECTION_STRING", catalogDb)
     .WithEnvironment("INVENTORY_CONNECTION_STRING", inventoryDb)
     .WaitForCompletion(catalogSqlproj)
@@ -59,6 +62,7 @@ var mcpInspector = builder
     })
     .WithMcpServer(dabServer, transportType: McpTransportType.StreamableHttp)
     .WithParentRelationship(dabServer)
+    .WithHttpEndpoint(port: 5678, targetPort: 6274, name: "http")
     .WithEnvironment("DANGEROUSLY_OMIT_AUTH", "true")
     .WithEnvironment("NODE_TLS_REJECT_UNAUTHORIZED", "0")
     .WaitFor(dabServer)
@@ -68,14 +72,14 @@ await builder.Build().RunAsync();
 
 static class Extensions
 {
-    public static IResourceBuilder<SqlServerDatabaseResource> AddSqlCommander(this IResourceBuilder<SqlServerDatabaseResource> db, string? name = null, string? imageTag = null)
+    public static IResourceBuilder<SqlServerDatabaseResource> AddSqlCommander(this IResourceBuilder<SqlServerDatabaseResource> db, string? name = null, string? imageTag = null, int? hostPort = null)
     {
         ArgumentNullException.ThrowIfNull(db);
 
         var commander = db.ApplicationBuilder
             .AddContainer(name ?? "sqlcmdr-" + db.Resource.Name, "jerrynixon/sql-commander", imageTag ?? "latest")
             .WithImageRegistry("docker.io")
-            .WithHttpEndpoint(targetPort: 8080, name: "http")
+            .WithHttpEndpoint(port: hostPort, targetPort: 8080, name: "http")
             .WithEnvironment("ConnectionStrings__db", db)
             .WithUrls(context =>
             {

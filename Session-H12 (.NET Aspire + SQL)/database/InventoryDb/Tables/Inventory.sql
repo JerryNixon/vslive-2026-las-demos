@@ -4,5 +4,5 @@ CREATE TABLE [dbo].[Inventory]
     [ProductId] INT NOT NULL,
     [WarehouseId] INT NOT NULL,
     [Quantity] INT NOT NULL DEFAULT 0,
-    CONSTRAINT [FK_Inventory_Warehouses] FOREIGN KEY ([WarehouseId]) REFERENCES [dbo].[Warehouses]([WarehouseId])
+    CONSTRAINT [FK_Inventory_Warehouse] FOREIGN KEY ([WarehouseId]) REFERENCES [dbo].[Warehouse]([WarehouseId])
 );

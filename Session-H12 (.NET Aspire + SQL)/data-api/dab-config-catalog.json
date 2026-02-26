@@ -5,7 +5,8 @@
   },
   "entities": {
     "Category": {
-      "source": "dbo.Categories",
+      "source": "dbo.Category",
+      "description": "Product categories for Star Trek ship models",
       "rest": true,
       "graphql": true,
       "permissions": [
@@ -24,7 +25,8 @@
       }
     },
     "Product": {
-      "source": "dbo.Products",
+      "source": "dbo.Product",
+      "description": "Star Trek ship models available for purchase",
       "rest": true,
       "graphql": true,
       "permissions": [

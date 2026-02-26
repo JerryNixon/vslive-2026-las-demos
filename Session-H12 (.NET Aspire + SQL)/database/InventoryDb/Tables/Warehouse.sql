@@ -1,4 +1,4 @@
-CREATE TABLE [dbo].[Warehouses]
+CREATE TABLE [dbo].[Warehouse]
 (
     [WarehouseId] INT NOT NULL PRIMARY KEY IDENTITY(1,1),
     [Name] NVARCHAR(100) NOT NULL,

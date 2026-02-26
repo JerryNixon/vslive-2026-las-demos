@@ -5,7 +5,8 @@
   },
   "entities": {
     "Warehouse": {
-      "source": "dbo.Warehouses",
+      "source": "dbo.Warehouse",
+      "description": "Warehouse locations that store inventory",
       "rest": true,
       "graphql": true,
       "permissions": [
@@ -25,6 +26,7 @@
     },
     "Inventory": {
       "source": "dbo.Inventory",
+      "description": "Stock levels of products at each warehouse",
       "rest": true,
       "graphql": true,
       "permissions": [
