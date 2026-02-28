@@ -178,10 +178,13 @@ public class AiChatClient(IChatClient chatClient, McpClientFactory mcpFactory, I
         catch (ClientResultException ex)
         {
             logger.LogError(ex, "AI model error: HTTP {Status} from {Endpoint}/{Model}", ex.Status, config.FoundryEndpoint, config.FoundryModel);
+            var keyHint = ex.Status is 401 or 403
+                ? "\n\n**Likely cause:** The API key is wrong. Check `FOUNDRY_KEY`."
+                : "";
             return new ChatResult(
                 $"**AI MODEL ERROR:** The model at `{config.FoundryEndpoint}` returned an error.\n\n" +
                 $"Model: `{config.FoundryModel}`\n\n" +
-                $"`{ex.GetType().Name}` (HTTP {ex.Status}): {ex.Message}",
+                $"`{ex.GetType().Name}` (HTTP {ex.Status}): {ex.Message}{keyHint}",
                 error: true);
         }
         catch (HttpRequestException ex)
@@ -239,7 +242,10 @@ public class AiChatClient(IChatClient chatClient, McpClientFactory mcpFactory, I
             var response = await http.SendAsync(request, ct);
             if (!response.IsSuccessStatusCode)
             {
-                issues.Add($"AI models endpoint returned {(int)response.StatusCode} at '{modelsUrl}'.");
+                var hint = (int)response.StatusCode is 401 or 403
+                    ? " Check that FOUNDRY_KEY is correct."
+                    : "";
+                issues.Add($"AI models endpoint returned {(int)response.StatusCode} at '{modelsUrl}'.{hint}");
             }
             else
             {

@@ -21,7 +21,6 @@ var options = new
     {
         Endpoint = builder.Configuration["Foundry:Endpoint"] ?? throw new InvalidOperationException("Foundry:Endpoint is not configured in appsettings."),
         Deployment = builder.Configuration["Foundry:Deployment"] ?? throw new InvalidOperationException("Foundry:Deployment is not configured in appsettings."),
-        ApiVersion = builder.Configuration["Foundry:ApiVersion"] ?? "2025-01-01-preview",
         Key = builder.Configuration["Foundry:Key"] ?? throw new InvalidOperationException("Foundry:Key is not configured in appsettings.")
     }
 };
