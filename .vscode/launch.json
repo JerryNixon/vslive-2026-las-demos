@@ -5,6 +5,7 @@
       "name": "Aspire AppHost",
       "type": "dotnet",
       "request": "launch",
+      "preLaunchTask": "AppHost: Build (safe)",
       "projectPath": "${workspaceFolder}/Session-H12 (.NET Aspire + SQL)/aspire-apphost/AppHost.csproj",
       "env": {
         "ASPNETCORE_URLS": "http://localhost:15888",
@@ -13,6 +14,11 @@
         "ASPIRE_ALLOW_UNSECURED_TRANSPORT": "true",
         "DOTNET_ENVIRONMENT": "Development",
         "DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS": "true"
+      },
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "Now listening on: (https?://localhost:\\d+)",
+        "uriFormat": "https://localhost:15888"
       }
     }
   ]

@@ -1,0 +1,12 @@
+{
+    "servers": {
+        "aspire": {
+            "type": "stdio",
+            "command": "C:\\Users\\jnixon\\.dotnet\\tools\\aspire.exe",
+            "args": [
+                "mcp",
+                "start"
+            ]
+        }
+    }
+}

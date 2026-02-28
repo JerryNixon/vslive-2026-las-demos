@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+        header { background: #16213e; padding: 12px 20px; border-bottom: 1px solid #0f3460; display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+        header h1 { font-size: 16px; font-weight: 600; color: #e94560; }
+        header span { font-size: 12px; color: #888; }
+        header:hover { background: #1a2745; }
+        #settings { display: none; background: #0f1a2e; border-bottom: 1px solid #0f3460; padding: 10px 20px; font-size: 12px; color: #888; line-height: 1.8; }
+        #settings .label { color: #e94560; font-weight: 600; }
+        #settings .val { color: #aaa; font-family: 'Cascadia Code', 'Consolas', monospace; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        .msg { max-width: 80%; padding: 10px 14px; border-radius: 12px; line-height: 1.5; font-size: 14px; word-wrap: break-word; }
+        .msg.user { align-self: flex-end; background: #0f3460; color: #fff; border-bottom-right-radius: 4px; white-space: pre-wrap; }
+        .msg.assistant { align-self: flex-start; background: #16213e; border: 1px solid #0f3460; border-bottom-left-radius: 4px; }
+        .msg.assistant .content { white-space: pre-wrap; }
+        .msg.thinking { align-self: flex-start; background: #16213e; border: 1px solid #333; color: #666; font-style: italic; white-space: pre-wrap; }
+        details.think-block { margin: 4px 0; border: 1px solid #333; border-radius: 6px; padding: 4px 8px; background: #111827; }
+        details.think-block summary { cursor: pointer; color: #666; font-size: 12px; font-style: italic; user-select: none; }
+        details.think-block summary:hover { color: #999; }
+        details.think-block .think-content { margin-top: 6px; color: #888; font-size: 13px; font-style: italic; white-space: pre-wrap; border-top: 1px solid #222; padding-top: 6px; }
+        #input-area { display: flex; gap: 8px; padding: 12px 20px; background: #16213e; border-top: 1px solid #0f3460; }
+        #input { flex: 1; padding: 10px 14px; border: 1px solid #0f3460; border-radius: 8px; background: #1a1a2e; color: #e0e0e0; font-size: 14px; outline: none; }
+        #input:focus { border-color: #e94560; }
+        #send { padding: 10px 20px; background: #e94560; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
+        #send:hover { background: #c73e54; }
+        #send:disabled { background: #555; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <header onclick="toggleSettings()">
+        <h1>Web Chat</h1>
+        <span>Azure AI + DAB MCP — click for settings</span>
+    </header>
+    <div id="settings"></div>
+    <div id="messages"></div>
+    <div id="input-area">
+        <input id="input" type="text" placeholder="Ask about products, categories, inventory..." autofocus />
+        <button id="send">Send</button>
+    </div>
+    <script>
+        const messages = [];
+        const msgDiv = document.getElementById('messages');
+        const input = document.getElementById('input');
+        const sendBtn = document.getElementById('send');
+        const settingsDiv = document.getElementById('settings');
+        let settingsLoaded = false;
+
+        async function toggleSettings() {
+            if (!settingsLoaded) {
+                try {
+                    const res = await fetch('/api/settings');
+                    const s = await res.json();
+                    settingsDiv.innerHTML =
+                        `<span class="label">Endpoint:</span> <span class="val">${s.foundry.endpoint}</span><br>` +
+                        `<span class="label">Model:</span> <span class="val">${s.foundry.model}</span><br>` +
+                        `<span class="label">MCP URL:</span> <span class="val">${s.mcp.url}</span>`;
+                    settingsLoaded = true;
+                } catch (e) {
+                    settingsDiv.innerHTML = `<span class="val">Error loading settings</span>`;
+                }
+            }
+            settingsDiv.style.display = settingsDiv.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function escHtml(s) {
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        function renderContent(text) {
+            // Split on <think>...</think> blocks
+            const parts = text.split(/(<think>[\s\S]*?<\/think>)/g);
+            let html = '';
+            for (const part of parts) {
+                const m = part.match(/^<think>([\s\S]*?)<\/think>$/);
+                if (m) {
+                    html += `<details class="think-block"><summary>💭 Thinking…</summary><div class="think-content">${escHtml(m[1].trim())}</div></details>`;
+                } else if (part) {
+                    html += `<span class="content">${escHtml(part)}</span>`;
+                }
+            }
+            return html;
+        }
+
+        function addMessage(role, content, isHtml) {
+            messages.push({ role, content });
+            const el = document.createElement('div');
+            el.className = `msg ${role}`;
+            if (isHtml) {
+                el.innerHTML = content;
+            } else {
+                el.textContent = content;
+            }
+            msgDiv.appendChild(el);
+            msgDiv.scrollTop = msgDiv.scrollHeight;
+            return el;
+        }
+
+        async function send() {
+            const text = input.value.trim();
+            if (!text) return;
+
+            addMessage('user', text);
+            input.value = '';
+            sendBtn.disabled = true;
+
+            const thinking = addMessage('thinking', 'Thinking...');
+
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages })
+                });
+
+                thinking.remove();
+
+                const data = await res.json();
+                addMessage('assistant', renderContent(data.answer), true);
+            } catch (e) {
+                thinking.remove();
+                addMessage('assistant', `Error: ${e.message}`);
+            } finally {
+                sendBtn.disabled = false;
+                input.focus();
+            }
+        }
+
+        sendBtn.addEventListener('click', send);
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+    </script>
+</body>
+</html>

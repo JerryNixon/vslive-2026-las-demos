@@ -1,0 +1,60 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "AppHost: Stop stale process",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/Session-H12 (.NET Aspire + SQL)/aspire-apphost/apphost-safe.ps1",
+        "-Action",
+        "stop"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "AppHost: Build (safe)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/Session-H12 (.NET Aspire + SQL)/aspire-apphost/apphost-safe.ps1",
+        "-Action",
+        "build"
+      ],
+      "problemMatcher": [
+        "$msCompile"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "AppHost: Run (safe)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/Session-H12 (.NET Aspire + SQL)/aspire-apphost/apphost-safe.ps1",
+        "-Action",
+        "run"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}
