@@ -2,6 +2,9 @@ using System.Diagnostics;
 using System.Text.Json;
 using Azure;
 using Azure.AI.Inference;
+using Azure.Core;
+using Azure.Core.Pipeline;
+using Azure.Identity;
 using Microsoft.Extensions.AI;
 using ChatRole = Microsoft.Extensions.AI.ChatRole;
 using ModelContextProtocol.Client;
@@ -16,6 +19,7 @@ public record HealthConfig(string foundryEndpoint, string foundryModel, string f
 
 public record AiChatConfig(
     string FoundryEndpoint, string FoundryModel, string FoundryKey, string McpUrl,
+    bool IsProjectEndpoint = false,
     int MaxMessages = 50, int MaxTotalChars = 100_000,
     int MaxMessageChars = 50_000,
     int ToolCacheTtlMinutes = 5, int ToolCacheFailTtlSeconds = 10,
@@ -26,10 +30,10 @@ public record AiChatConfig(
     {
         var endpoint = config["FOUNDRY_ENDPOINT"]
             ?? throw new InvalidOperationException("FOUNDRY_ENDPOINT is not configured. Set it as an environment variable.");
-        var model = config["FOUNDRY_MODEL"]
-            ?? throw new InvalidOperationException("FOUNDRY_MODEL is not configured. Set it as an environment variable.");
         var key = config["FOUNDRY_KEY"]
             ?? throw new InvalidOperationException("FOUNDRY_KEY is not configured. Set it as an environment variable.");
+        var model = config["FOUNDRY_MODEL"]
+            ?? throw new InvalidOperationException("FOUNDRY_MODEL is not configured. Set it as an environment variable.");
         var mcpUrl = config["MCP_URL"]
             ?? throw new InvalidOperationException("MCP_URL is not configured. Set it as an environment variable.");
 
@@ -41,6 +45,40 @@ public record AiChatConfig(
         if (endpointUri.Scheme != Uri.UriSchemeHttps)
         {
             throw new InvalidOperationException($"FOUNDRY_ENDPOINT must use HTTPS: '{endpoint}'");
+        }
+
+        // Detect Azure AI Foundry project URL (e.g. https://resource.services.ai.azure.com/api/projects/{project}).
+        // The correct inference endpoint is {base-host}/models, authenticated via DefaultAzureCredential
+        // with scope https://ai.azure.com/.default — NOT via API key.
+        // See: https://github.com/Azure/azure-sdk-for-net/blob/main/sdk/ai/Azure.AI.Projects/samples/Sample9_InferenceChatClient.md
+        bool isProjectEndpoint = false;
+        if (endpointUri.AbsolutePath.StartsWith("/api/projects/", StringComparison.OrdinalIgnoreCase))
+        {
+            isProjectEndpoint = true;
+            endpoint = $"{endpointUri.GetLeftPart(UriPartial.Authority)}/models";
+            Console.Error.WriteLine($"INFO: Azure AI Foundry project URL detected. Inference endpoint: {endpoint}");
+            Console.Error.WriteLine($"INFO: Auth uses DefaultAzureCredential (scope: https://ai.azure.com/.default), not the API key.");
+        }
+
+        // Detect when user pastes a full chat completions request URL instead of a base endpoint.
+        // e.g. https://my-resource.cognitiveservices.azure.com/openai/deployments/my-model/chat/completions?api-version=...
+        var path = endpointUri.AbsolutePath;
+        if (path.Contains("/openai/deployments/", StringComparison.OrdinalIgnoreCase) ||
+            path.Contains("/chat/completions", StringComparison.OrdinalIgnoreCase) ||
+            path.Contains("/completions", StringComparison.OrdinalIgnoreCase))
+        {
+            var baseUrl = $"{endpointUri.Scheme}://{endpointUri.Host}";
+            throw new InvalidOperationException(
+                $"FOUNDRY_ENDPOINT looks like a full request URL, not a base endpoint. " +
+                $"Remove the path and query string — use just the base URL. " +
+                $"For example: '{baseUrl}' instead of '{endpoint}'");
+        }
+
+        // Normalise the endpoint string (trim trailing slash).
+        // For project URLs the endpoint was already rewritten above; for all others, derive it from the parsed URI.
+        if (!isProjectEndpoint)
+        {
+            endpoint = endpointUri.ToString().TrimEnd('/');
         }
 
         if (!Uri.TryCreate(mcpUrl, UriKind.Absolute, out var mcpUri))
@@ -63,7 +101,7 @@ public record AiChatConfig(
             throw new InvalidOperationException("FOUNDRY_KEY is empty or whitespace.");
         }
 
-        return new AiChatConfig(endpoint, model, key, mcpUrl);
+        return new AiChatConfig(endpoint, model, key, mcpUrl, isProjectEndpoint);
     }
 
     public string MaskedKey => FoundryKey.Length > 8 ? "***" + FoundryKey[^4..] : "***";
@@ -249,42 +287,72 @@ public sealed class AiChatClient(IChatClient chatClient, McpClientFactory mcpFac
         {
             using var http = httpFactory.CreateClient();
             http.Timeout = TimeSpan.FromSeconds(config.HealthCheckTimeoutSeconds);
-            var modelsUrl = config.FoundryEndpoint.TrimEnd('/') + "/models";
-            using var request = new HttpRequestMessage(HttpMethod.Get, modelsUrl);
-            request.Headers.Add("api-key", config.FoundryKey);
-            var response = await http.SendAsync(request, ct);
-            if (!response.IsSuccessStatusCode)
+
+            if (config.IsProjectEndpoint)
             {
-                var hint = (int)response.StatusCode is 401 or 403
-                    ? " Check that FOUNDRY_KEY is correct."
-                    : "";
-                issues.Add($"AI models endpoint returned {(int)response.StatusCode} at '{modelsUrl}'.{hint}");
+                // For Azure AI Foundry project endpoints, the /models listing endpoint doesn't
+                // support GET requests (returns 404). Instead, verify connectivity by checking
+                // that we can get a bearer token and that the base host is reachable.
+                var aadCredential = new DefaultAzureCredential();
+                try
+                {
+                    var tokenCtx = new Azure.Core.TokenRequestContext(["https://ai.azure.com/.default"]);
+                    var token = await aadCredential.GetTokenAsync(tokenCtx, ct);
+                    if (string.IsNullOrWhiteSpace(token.Token))
+                        issues.Add("DefaultAzureCredential returned an empty token. Ensure Azure CLI is logged in or a managed identity is configured.");
+                    // Connectivity check: HEAD the base models inference URL
+                    using var headReq = new HttpRequestMessage(HttpMethod.Head,
+                        config.FoundryEndpoint.TrimEnd('/') + "/chat/completions");
+                    headReq.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Token);
+                    // HEAD may return 405 (method not allowed) which still means the server is reachable.
+                    var headResp = await http.SendAsync(headReq, ct);
+                    if ((int)headResp.StatusCode is 0 or >= 500)
+                        issues.Add($"AI Foundry endpoint connectivity check failed (HTTP {(int)headResp.StatusCode}) at '{config.FoundryEndpoint}'.");
+                }
+                catch (Exception aadEx)
+                {
+                    issues.Add($"DefaultAzureCredential error: {aadEx.GetType().Name} — {aadEx.Message}");
+                }
             }
             else
             {
-                var body = await response.Content.ReadAsStringAsync(ct);
-                try
+                var modelsUrl = config.FoundryEndpoint.TrimEnd('/') + "/models";
+                using var request = new HttpRequestMessage(HttpMethod.Get, modelsUrl);
+                request.Headers.Add("api-key", config.FoundryKey);
+                var response = await http.SendAsync(request, ct);
+                if (!response.IsSuccessStatusCode)
                 {
-                    using var doc = JsonDocument.Parse(body);
-                    var found = false;
-                    if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+                    var hint = (int)response.StatusCode is 401 or 403
+                        ? " Check that FOUNDRY_KEY is correct."
+                        : "";
+                    issues.Add($"AI models endpoint returned {(int)response.StatusCode} at '{modelsUrl}'.{hint}");
+                }
+                else
+                {
+                    var body = await response.Content.ReadAsStringAsync(ct);
+                    try
                     {
-                        foreach (var item in data.EnumerateArray())
+                        using var doc = JsonDocument.Parse(body);
+                        var found = false;
+                        if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
                         {
-                            if (item.TryGetProperty("id", out var id) &&
-                                string.Equals(id.GetString(), config.FoundryModel, StringComparison.OrdinalIgnoreCase))
+                            foreach (var item in data.EnumerateArray())
                             {
-                                found = true;
-                                break;
+                                if (item.TryGetProperty("id", out var id) &&
+                                    string.Equals(id.GetString(), config.FoundryModel, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    found = true;
+                                    break;
+                                }
                             }
                         }
+                        if (!found)
+                            issues.Add($"AI endpoint is reachable but deployment '{config.FoundryModel}' was not found in /models response.");
                     }
-                    if (!found)
-                        issues.Add($"AI endpoint is reachable but deployment '{config.FoundryModel}' was not found in /models response.");
-                }
-                catch (JsonException)
-                {
-                    issues.Add("AI /models endpoint returned non-JSON response.");
+                    catch (JsonException)
+                    {
+                        issues.Add("AI /models endpoint returned non-JSON response.");
+                    }
                 }
             }
         }
@@ -365,7 +433,7 @@ public sealed class McpClientFactory(AiChatConfig config) : IAsyncDisposable
             if (_client is not null)
                 return _client;
 
-            var transport = new HttpClientTransport(new HttpClientTransportOptions
+            var transport = new ModelContextProtocol.Client.HttpClientTransport(new HttpClientTransportOptions
             {
                 Endpoint = new Uri(config.McpUrl),
                 Name = "mcp",
@@ -425,8 +493,29 @@ public static class AiChatServiceExtensions
         {
             try
             {
-                var credential = new AzureKeyCredential(config.FoundryKey);
-                var inferenceClient = new ChatCompletionsClient(new Uri(config.FoundryEndpoint), credential);
+                ChatCompletionsClient inferenceClient;
+                if (config.IsProjectEndpoint)
+                {
+                    // Azure AI Foundry project endpoint ({host}/models): requires Bearer token with
+                    // https://ai.azure.com/.default scope. We add an explicit BearerTokenAuthenticationPolicy
+                    // so the correct scope is always used regardless of SDK defaults.
+                    // DefaultAzureCredential tries Azure CLI, Visual Studio, managed identity, etc.
+                    var aadCredential = new DefaultAzureCredential();
+                    var opts = new AzureAIInferenceClientOptions();
+                    opts.AddPolicy(
+                        new BearerTokenAuthenticationPolicy(aadCredential, "https://ai.azure.com/.default"),
+                        HttpPipelinePosition.PerRetry);
+                    inferenceClient = new ChatCompletionsClient(
+                        new Uri(config.FoundryEndpoint),
+                        new AzureKeyCredential(config.FoundryKey),
+                        opts);
+                }
+                else
+                {
+                    // Standard Azure AI Inference or Azure OpenAI endpoint: use API key.
+                    inferenceClient = new ChatCompletionsClient(new Uri(config.FoundryEndpoint), new AzureKeyCredential(config.FoundryKey));
+                }
+
                 IChatClient client = inferenceClient.AsIChatClient(config.FoundryModel);
                 var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
                 return new ChatClientBuilder(client)

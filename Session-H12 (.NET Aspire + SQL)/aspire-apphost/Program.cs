@@ -3,10 +3,40 @@
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-var foundryEndpoint = builder.AddParameter("Foundry-Endpoint", secret: true);
-var foundryDeployment = builder.AddParameter("Foundry-Deployment", secret: true);
-var foundryKey = builder.AddParameter("Foundry-Key", secret: true);
-var sqlPassword = builder.AddParameter("sql-password", secret: true);
+var foundryEndpoint = builder.AddParameter("Foundry-Endpoint", secret: true)
+    .WithCustomInput(p => new()
+    {
+        Name = p.Name,
+        Label = "Azure AI Foundry Endpoint",
+        Placeholder = "For example, https://your-resource.cognitiveservices.azure.com",
+        InputType = InputType.Text,
+        Description = "Find your endpoint here: [Azure AI Foundry](https://ai.azure.com)",
+        EnableDescriptionMarkdown = true
+    });
+var foundryKey = builder.AddParameter("Foundry-Key", secret: true)
+    .WithCustomInput(p => new()
+    {
+        Name = p.Name,
+        Label = "Azure AI Foundry API Key",
+        Placeholder = "For example, ABC123XYZ456",
+        InputType = InputType.Text
+    });
+var foundryDeployment = builder.AddParameter("Foundry-Deployment", secret: true)
+    .WithCustomInput(p => new()
+    {
+        Name = p.Name,
+        Label = "Azure AI Foundry Deployment",
+        Placeholder = "For example, my-deployment-name",
+        InputType = InputType.Text
+    });
+var sqlPassword = builder.AddParameter("sql-password", secret: true)
+    .WithCustomInput(p => new()
+    {
+        Name = p.Name,
+        Label = "SQL Server Password",
+        Placeholder = "Enter your SQL Server password",
+        InputType = InputType.Text
+    });
 
 var sqlServer = builder
     .AddSqlServer("sql-server", password: sqlPassword, port: 8001)

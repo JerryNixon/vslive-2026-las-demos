@@ -28,7 +28,7 @@ try {
         }
         "run" {
             Write-Host "Running AppHost..."
-            dotnet run --project $appHostProject
+            dotnet run --project $appHostProject --launch-profile https
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         }
     }
