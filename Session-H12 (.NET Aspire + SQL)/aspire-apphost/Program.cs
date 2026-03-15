@@ -61,7 +61,7 @@ var config3 = new FileInfo(Path.Combine(configDir, "dab-config-inventory.json"))
 var dabServer = builder
     .AddDataAPIBuilder("data-api", 8004).WithIconName("Drag")
     .WithConfigFile(config1, config2, config3)
-    .WithImageTag("1.7.83-rc")
+    .WithImageTag("2.0.0-rc")
     .WithEnvironment("CATALOG_CONNECTION_STRING", catalogDb)
     .WithEnvironment("INVENTORY_CONNECTION_STRING", inventoryDb)
     .WaitForCompletion(catalogSqlproj)

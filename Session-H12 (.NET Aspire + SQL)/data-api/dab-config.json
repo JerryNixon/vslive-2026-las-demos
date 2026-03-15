@@ -25,7 +25,8 @@
       }
     },
     "mcp": {
-      "enabled": true
+      "enabled": true,
+      "description": "JERRY-NIXON-TEST-MCP"
     },
     "telemetry": {
       "open-telemetry": {

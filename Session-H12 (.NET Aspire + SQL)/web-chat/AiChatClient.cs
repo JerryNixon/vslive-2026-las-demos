@@ -1,13 +1,12 @@
 using System.Diagnostics;
 using System.Text.Json;
-using Azure;
-using Azure.AI.Inference;
-using Azure.Core;
-using Azure.Core.Pipeline;
+using System.ClientModel;
 using Azure.Identity;
 using Microsoft.Extensions.AI;
-using ChatRole = Microsoft.Extensions.AI.ChatRole;
+using OpenAI;
 using ModelContextProtocol.Client;
+using ChatRole = Microsoft.Extensions.AI.ChatRole;
+using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace WebChat;
 
@@ -171,7 +170,14 @@ public sealed class AiChatClient(IChatClient chatClient, McpClientFactory mcpFac
         IReadOnlyList<McpClientTool> tools;
         try
         {
+            var toolSw = System.Diagnostics.Stopwatch.StartNew();
             tools = await GetToolsCachedAsync(ct);
+            toolSw.Stop();
+            if (toolSw.ElapsedMilliseconds > 100)
+            {
+                logger.LogWarning("Tool fetch took {ElapsedMs}ms (from cache: {Cached})", 
+                    toolSw.ElapsedMilliseconds, _toolCache is not null);
+            }
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -208,13 +214,20 @@ public sealed class AiChatClient(IChatClient chatClient, McpClientFactory mcpFac
 
         try
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            logger.LogInformation("Starting chat request with {ToolCount} tools available", tools.Count);
+            
             var response = await chatClient.GetResponseAsync(messages, chatOptions, ct);
+            
+            sw.Stop();
+            logger.LogInformation("Chat request completed in {ElapsedMs}ms", sw.ElapsedMilliseconds);
+            
             var answer = string.IsNullOrWhiteSpace(response.Text)
                 ? "(Model returned only tool calls — no final answer generated. Try rephrasing your question.)"
                 : response.Text;
             return new ChatResult(answer);
         }
-        catch (RequestFailedException ex)
+        catch (ClientResultException ex)
         {
             logger.LogError(ex, "AI model error: HTTP {Status} from {Endpoint}/{Model}", ex.Status, config.FoundryEndpoint, config.FoundryModel);
             var keyHint = ex.Status is 401 or 403
@@ -316,43 +329,28 @@ public sealed class AiChatClient(IChatClient chatClient, McpClientFactory mcpFac
             }
             else
             {
-                var modelsUrl = config.FoundryEndpoint.TrimEnd('/') + "/models";
-                using var request = new HttpRequestMessage(HttpMethod.Get, modelsUrl);
-                request.Headers.Add("api-key", config.FoundryKey);
-                var response = await http.SendAsync(request, ct);
-                if (!response.IsSuccessStatusCode)
+                // Test the deployment using the actual OpenAI SDK client
+                try
                 {
-                    var hint = (int)response.StatusCode is 401 or 403
-                        ? " Check that FOUNDRY_KEY is correct."
-                        : "";
-                    issues.Add($"AI models endpoint returned {(int)response.StatusCode} at '{modelsUrl}'.{hint}");
+                    var testClient = new OpenAI.OpenAIClient(
+                        new ApiKeyCredential(config.FoundryKey),
+                        new OpenAIClientOptions { Endpoint = new Uri(config.FoundryEndpoint) });
+                    
+                    var chatClient = testClient.GetChatClient(config.FoundryModel);
+                    var testResponse = await chatClient.CompleteChatAsync(
+                        [new OpenAI.Chat.UserChatMessage("test")],
+                        new OpenAI.Chat.ChatCompletionOptions { MaxOutputTokenCount = 1 });
+                    
+                    // If we got here, the deployment is accessible
                 }
-                else
+                catch (ClientResultException ex)
                 {
-                    var body = await response.Content.ReadAsStringAsync(ct);
-                    try
-                    {
-                        using var doc = JsonDocument.Parse(body);
-                        var found = false;
-                        if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
-                        {
-                            foreach (var item in data.EnumerateArray())
-                            {
-                                if (item.TryGetProperty("id", out var id) &&
-                                    string.Equals(id.GetString(), config.FoundryModel, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    found = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (!found)
-                            issues.Add($"AI endpoint is reachable but deployment '{config.FoundryModel}' was not found in /models response.");
-                    }
-                    catch (JsonException)
-                    {
-                        issues.Add("AI /models endpoint returned non-JSON response.");
-                    }
+                    var hint = ex.Status is 401 or 403
+                        ? " Check that FOUNDRY_KEY is correct."
+                        : ex.Status is 404
+                            ? $" Deployment '{config.FoundryModel}' not found."
+                            : "";
+                    issues.Add($"Azure OpenAI deployment test returned {ex.Status}.{hint}");
                 }
             }
         }
@@ -440,6 +438,14 @@ public sealed class McpClientFactory(AiChatConfig config) : IAsyncDisposable
                 TransportMode = HttpTransportMode.StreamableHttp
             });
             _client = await McpClient.CreateAsync(transport, cancellationToken: ct);
+            
+            // Log MCP server information after successful connection
+            var serverInfo = _client.ServerInfo;
+            logger.LogInformation("Connected to MCP server: Name={ServerName}, Version={ServerVersion}, Description={Description}", 
+                serverInfo?.Name ?? "N/A", 
+                serverInfo?.Version ?? "N/A",
+                serverInfo?.Description ?? "N/A");
+            
             return _client;
         }
         catch
@@ -493,30 +499,38 @@ public static class AiChatServiceExtensions
         {
             try
             {
-                ChatCompletionsClient inferenceClient;
+                OpenAIClient openAIClient;
+                
                 if (config.IsProjectEndpoint)
                 {
-                    // Azure AI Foundry project endpoint ({host}/models): requires Bearer token with
-                    // https://ai.azure.com/.default scope. We add an explicit BearerTokenAuthenticationPolicy
-                    // so the correct scope is always used regardless of SDK defaults.
-                    // DefaultAzureCredential tries Azure CLI, Visual Studio, managed identity, etc.
-                    var aadCredential = new DefaultAzureCredential();
-                    var opts = new AzureAIInferenceClientOptions();
-                    opts.AddPolicy(
-                        new BearerTokenAuthenticationPolicy(aadCredential, "https://ai.azure.com/.default"),
-                        HttpPipelinePosition.PerRetry);
-                    inferenceClient = new ChatCompletionsClient(
-                        new Uri(config.FoundryEndpoint),
-                        new AzureKeyCredential(config.FoundryKey),
-                        opts);
+                    // Azure AI Foundry project endpoint: DefaultAzureCredential doesn't work directly
+                    // with OpenAIClient, so we need to get a token and use it as an API key
+                    var credential = new DefaultAzureCredential();
+                    var tokenRequest = new Azure.Core.TokenRequestContext(["https://cognitiveservices.azure.com/.default"]);
+                    var token = credential.GetToken(tokenRequest, default);
+                    openAIClient = new OpenAIClient(
+                        new ApiKeyCredential(token.Token),
+                        new OpenAIClientOptions
+                        {
+                            Endpoint = new Uri(config.FoundryEndpoint)
+                        });
                 }
                 else
                 {
-                    // Standard Azure AI Inference or Azure OpenAI endpoint: use API key.
-                    inferenceClient = new ChatCompletionsClient(new Uri(config.FoundryEndpoint), new AzureKeyCredential(config.FoundryKey));
+                    // OpenAI-compatible endpoint (Azure OpenAI with /openai/v1/): use API key
+                    openAIClient = new OpenAIClient(
+                        new ApiKeyCredential(config.FoundryKey),
+                        new OpenAIClientOptions
+                        {
+                            Endpoint = new Uri(config.FoundryEndpoint)
+                        });
                 }
 
-                IChatClient client = inferenceClient.AsIChatClient(config.FoundryModel);
+                // Get the chat client for the specific deployment/model
+                var chatClient = openAIClient.GetChatClient(config.FoundryModel);
+                
+                // Wrap with Microsoft.Extensions.AI and add middleware
+                IChatClient client = chatClient.AsIChatClient();
                 var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
                 return new ChatClientBuilder(client)
                     .UseLogging(loggerFactory)
@@ -526,7 +540,7 @@ public static class AiChatServiceExtensions
             catch (Exception ex)
             {
                 throw new InvalidOperationException(
-                    $"Failed to create Azure AI chat client. Endpoint='{config.FoundryEndpoint}', Model='{config.FoundryModel}'. " +
+                    $"Failed to create OpenAI chat client. Endpoint='{config.FoundryEndpoint}', Model='{config.FoundryModel}'. " +
                     $"({ex.GetType().Name}: {ex.Message})", ex);
             }
         });
