@@ -169,6 +169,15 @@ Nothing is added silently. Every expansion is a conscious, user-approved decisio
 
 ## 4. Technology Stack
 
+### Prerequisite CLI Tools
+- **Azure CLI** (`az`) — resource provisioning
+- **.NET SDK 8+** — building SQL projects and Azure Functions
+- **SqlPackage** (`dotnet tool install -g microsoft.sqlpackage`) — schema deployment
+- **Docker** — container builds and local orchestration
+- **DAB CLI** (`dotnet tool install -g Microsoft.DataApiBuilder --version 2.0.0-rc`) — config generation and local dev
+- **Aspire CLI** (`dotnet tool install -g aspire.cli`) — optional, for Aspire orchestration
+- **PowerShell 7+** (`pwsh`) — deployment scripts
+
 ### Cloud
 - **Provider:** Azure only
 - **CLI:** Use `az` commands for all resource provisioning
@@ -185,7 +194,7 @@ Nothing is added silently. Every expansion is a conscious, user-approved decisio
 
 ### API
 - **Framework:** Data API Builder (DAB) — no custom API code
-- **Version:** `1.7.83-rc` or later (never `latest`) — MCP requires 1.7+
+- **Version:** `2.0.0-rc` (never `latest`) — MCP requires explicit `"mcp": { "enabled": true }` in runtime config
 - **Endpoints:** REST enabled by default; GraphQL optional
 - **Configuration:** Use `dab` CLI for all config operations
 - **Data Operations:** MCP enabled by default — prefer MCP over SQLCMD
@@ -212,6 +221,17 @@ Nothing is added silently. Every expansion is a conscious, user-approved decisio
 - **API:** `.http` files in VS Code (REST Client extension)
 - **Data queries:** MCP tools via `.vscode/mcp.json` (preferred over SQL)
 - **Schema scripts:** `.sql` files deployed via `sqlpackage`
+
+### Database Interaction (Agent Preference)
+- **Preferred:** Use the **MSSQL MCP tools** (`mssql_connect`, `mssql_run_query`, `mssql_list_tables`, etc.) for all database interaction — queries, validation, debugging, and testing. This is far cleaner than shelling out to PowerShell/SqlClient.
+- **Connection:** If multiple MSSQL connections exist (use `mssql_list_servers`), ask the user which one to use. If only one exists, connect to it automatically.
+- **Fallback:** If the MSSQL MCP tools are unavailable or fail, fall back to the CLI (PowerShell + `System.Data.SqlClient` or `sqlcmd`).
+- **Never** default to the CLI when the MSSQL MCP tools are available and working.
+
+### Vector Indexes (DiskANN)
+- **Minimum tier:** DiskANN vector indexes require **≥4 vCores** on Azure SQL General Purpose. GP_S_Gen5_2 (2 vCores serverless) will fail with `DBCC TRACEON` permission error.
+- **Do not auto-upgrade** the database tier to fix this. If the current tier is too small, comment out the vector index step and show the syntax only.
+- **Exact scan still works:** `VECTOR_SEARCH` returns correct results without the index — it just does an exact scan instead of approximate nearest-neighbor (ANN).
 
 ### Secrets Management
 1. Store in `.env` file using `KEY=value` format
@@ -277,8 +297,12 @@ Nothing is added silently. Every expansion is a conscious, user-approved decisio
 
 ### MCP Setup for Data Operations
 
-Before first data-plane request (query/insert/update/delete), ask user:
-> "Want me to set up MCP so I can query your database directly?"
+**Agent database access (MSSQL MCP tools):**
+When you need to run SQL against a database — for validation, testing, debugging, or any data-plane work — use the **MSSQL MCP tools** (`mssql_connect`, `mssql_run_query`, etc.) directly. These are always available in the VS Code MCP server list and do not require any config file. Check `mssql_list_servers` for existing connections; if the target server is already configured, connect to it. If multiple connections exist, ask the user which one. Only fall back to CLI if the MSSQL tools are unavailable or broken.
+
+**DAB MCP endpoint (for app/agent consumption):**
+Before first data-plane request via DAB MCP, ask user:
+> "Want me to set up MCP so I can query your database through DAB directly?"
 
 If yes, create `.vscode/mcp.json`:
 ```json
@@ -353,7 +377,7 @@ erDiagram
 
 **Dockerfile:**
 ```dockerfile
-FROM mcr.microsoft.com/azure-databases/data-api-builder:1.7.83-rc
+FROM mcr.microsoft.com/azure-databases/data-api-builder:2.0.0-rc
 COPY dab-config.json /App/dab-config.json
 ```
 

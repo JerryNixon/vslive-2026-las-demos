@@ -11,7 +11,7 @@
   </ItemGroup>
   <ItemGroup>
     <!-- Azure SQL-specific objects deployed separately by azure-up.ps1 -->
-    <None Include="Scripts\CreateReviewVector.sql" />
+    <None Include="Tables\ReviewVector.sql" />
     <None Include="Scripts\CreateExternalModel.sql" />
     <None Include="StoredProcedures\ChunkReviews.sql" />
     <None Include="StoredProcedures\EmbedReviews.sql" />
@@ -19,7 +19,9 @@
     <None Include="StoredProcedures\ToggleChangeTracking.sql" />
     <None Include="StoredProcedures\ToggleVectorIndex.sql" />
     <None Include="StoredProcedures\SearchByVector.sql" />
-    <None Include="StoredProcedures\SearchByText.sql" />    <None Include="StoredProcedures\\ResetDemo.sql" />    <None Include="Triggers\ReviewChanged.sql" />
+    <None Include="StoredProcedures\SearchByText.sql" />
+    <None Include="StoredProcedures\ResetDemo.sql" />
+    <None Include="Triggers\ReviewChanged.sql" />
     <None Include="Views\ReviewsPendingEmbedding.sql" />
   </ItemGroup>
 </Project>

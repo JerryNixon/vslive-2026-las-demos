@@ -1,0 +1,272 @@
+{
+  "$schema": "https://github.com/Azure/data-api-builder/releases/latest/download/dab.draft.schema.json",
+  "data-source": {
+    "database-type": "mssql",
+    "connection-string": "@env('DATABASE_CONNECTION_STRING')"
+  },
+  "runtime": {
+    "rest": {
+      "enabled": true,
+      "path": "/api"
+    },
+    "graphql": {
+      "enabled": false,
+      "path": "/graphql"
+    },
+    "mcp": {
+      "enabled": true
+    },
+    "host": {
+      "mode": "development",
+      "cors": {
+        "origins": ["*"],
+        "allow-credentials": false
+      }
+    }
+  },
+  "entities": {
+    "Category": {
+      "source": {
+        "object": "dbo.Category",
+        "type": "table"
+      },
+      "graphql": {
+        "enabled": true,
+        "type": { "singular": "Category", "plural": "Categories" }
+      },
+      "rest": { "enabled": true },
+      "permissions": [
+        { "role": "anonymous", "actions": [{ "action": "*" }] }
+      ],
+      "relationships": {
+        "products": {
+          "cardinality": "many",
+          "target.entity": "Product",
+          "source.fields": ["CategoryId"],
+          "target.fields": ["CategoryId"]
+        }
+      }
+    },
+    "Product": {
+      "source": {
+        "object": "dbo.Product",
+        "type": "table"
+      },
+      "graphql": {
+        "enabled": true,
+        "type": { "singular": "Product", "plural": "Products" }
+      },
+      "rest": { "enabled": true },
+      "permissions": [
+        { "role": "anonymous", "actions": [{ "action": "*" }] }
+      ],
+      "relationships": {
+        "category": {
+          "cardinality": "one",
+          "target.entity": "Category",
+          "source.fields": ["CategoryId"],
+          "target.fields": ["CategoryId"]
+        },
+        "reviews": {
+          "cardinality": "many",
+          "target.entity": "Review",
+          "source.fields": ["ProductId"],
+          "target.fields": ["ProductId"]
+        }
+      }
+    },
+    "Customer": {
+      "source": {
+        "object": "dbo.Customer",
+        "type": "table"
+      },
+      "graphql": {
+        "enabled": true,
+        "type": { "singular": "Customer", "plural": "Customers" }
+      },
+      "rest": { "enabled": true },
+      "permissions": [
+        { "role": "anonymous", "actions": [{ "action": "*" }] }
+      ],
+      "relationships": {
+        "reviews": {
+          "cardinality": "many",
+          "target.entity": "Review",
+          "source.fields": ["CustomerId"],
+          "target.fields": ["CustomerId"]
+        }
+      }
+    },
+    "Review": {
+      "source": {
+        "object": "dbo.Review",
+        "type": "table"
+      },
+      "graphql": {
+        "enabled": true,
+        "type": { "singular": "Review", "plural": "Reviews" }
+      },
+      "rest": { "enabled": true },
+      "permissions": [
+        { "role": "anonymous", "actions": [{ "action": "*" }] }
+      ],
+      "relationships": {
+        "product": {
+          "cardinality": "one",
+          "target.entity": "Product",
+          "source.fields": ["ProductId"],
+          "target.fields": ["ProductId"]
+        },
+        "customer": {
+          "cardinality": "one",
+          "target.entity": "Customer",
+          "source.fields": ["CustomerId"],
+          "target.fields": ["CustomerId"]
+        },
+        "chunks": {
+          "cardinality": "many",
+          "target.entity": "ReviewVector",
+          "source.fields": ["ReviewId"],
+          "target.fields": ["ReviewId"]
+        }
+      }
+    },
+    "ReviewVector": {
+      "source": {
+        "object": "dbo.ReviewVector",
+        "type": "table"
+      },
+      "graphql": {
+        "enabled": true,
+        "type": { "singular": "ReviewVector", "plural": "ReviewVectors" }
+      },
+      "rest": { "enabled": true },
+      "permissions": [
+        { "role": "anonymous", "actions": [{ "action": "read" }] }
+      ],
+      "relationships": {
+        "review": {
+          "cardinality": "one",
+          "target.entity": "Review",
+          "source.fields": ["ReviewId"],
+          "target.fields": ["ReviewId"]
+        }
+      }
+    },
+    "ReviewsPendingEmbedding": {
+      "source": {
+        "object": "dbo.ReviewsPendingEmbedding",
+        "type": "view",
+        "key-fields": ["Id"]
+      },
+      "graphql": {
+        "enabled": true,
+        "type": { "singular": "ReviewPendingEmbedding", "plural": "ReviewsPendingEmbedding" }
+      },
+      "rest": { "enabled": true },
+      "permissions": [
+        { "role": "anonymous", "actions": [{ "action": "read" }] }
+      ]
+    },
+    "ChunkReviews": {
+      "source": {
+        "object": "dbo.ChunkReviews",
+        "type": "stored-procedure",
+        "parameters": {
+          "BatchSize": 10,
+          "ReviewId": null,
+          "ChunkSize": 800,
+          "Overlap": 25
+        }
+      },
+      "rest": { "enabled": true, "methods": ["post"] },
+      "graphql": { "enabled": true, "operation": "mutation" },
+      "permissions": [
+        { "role": "anonymous", "actions": [{ "action": "execute" }] }
+      ]
+    },
+    "EmbedSingleReview": {
+      "source": {
+        "object": "dbo.EmbedSingleReview",
+        "type": "stored-procedure",
+        "parameters": {
+          "ReviewVectorId": 0
+        }
+      },
+      "rest": { "enabled": true, "methods": ["post"] },
+      "graphql": { "enabled": true, "operation": "mutation" },
+      "permissions": [
+        { "role": "anonymous", "actions": [{ "action": "execute" }] }
+      ]
+    },
+    "EmbedReviews": {
+      "source": {
+        "object": "dbo.EmbedReviews",
+        "type": "stored-procedure",
+        "parameters": {
+          "BatchSize": 10
+        }
+      },
+      "rest": { "enabled": true, "methods": ["post"] },
+      "graphql": { "enabled": true, "operation": "mutation" },
+      "permissions": [
+        { "role": "anonymous", "actions": [{ "action": "execute" }] }
+      ]
+    },
+    "SearchByText": {
+      "source": {
+        "object": "dbo.SearchByText",
+        "type": "stored-procedure",
+        "parameters": {
+          "SearchText": "",
+          "Top": 5,
+          "Threshold": 0.6
+        }
+      },
+      "rest": { "enabled": true, "methods": ["post"] },
+      "graphql": { "enabled": true, "operation": "query" },
+      "permissions": [
+        { "role": "anonymous", "actions": [{ "action": "execute" }] }
+      ]
+    },
+    "ToggleChangeTracking": {
+      "source": {
+        "object": "dbo.ToggleChangeTracking",
+        "type": "stored-procedure",
+        "parameters": {
+          "Enable": 1
+        }
+      },
+      "rest": { "enabled": true, "methods": ["post"] },
+      "graphql": { "enabled": true, "operation": "mutation" },
+      "permissions": [
+        { "role": "anonymous", "actions": [{ "action": "execute" }] }
+      ]
+    },
+    "ToggleVectorIndex": {
+      "source": {
+        "object": "dbo.ToggleVectorIndex",
+        "type": "stored-procedure",
+        "parameters": {
+          "Enable": 1
+        }
+      },
+      "rest": { "enabled": true, "methods": ["post"] },
+      "graphql": { "enabled": true, "operation": "mutation" },
+      "permissions": [
+        { "role": "anonymous", "actions": [{ "action": "execute" }] }
+      ]
+    },
+    "ResetDemo": {
+      "source": {
+        "object": "dbo.ResetDemo",
+        "type": "stored-procedure"
+      },
+      "rest": { "enabled": true, "methods": ["post"] },
+      "graphql": { "enabled": true, "operation": "mutation" },
+      "permissions": [
+        { "role": "anonymous", "actions": [{ "action": "execute" }] }
+      ]
+    }
+  }
+}

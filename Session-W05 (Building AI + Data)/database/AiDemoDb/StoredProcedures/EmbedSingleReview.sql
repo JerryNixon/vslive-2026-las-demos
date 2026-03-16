@@ -3,9 +3,10 @@ CREATE OR ALTER PROCEDURE dbo.EmbedSingleReview
 AS
 BEGIN
     SET NOCOUNT ON;
+    DECLARE @p JSON = N'{"dimensions":1536}';
 
     UPDATE dbo.ReviewVector
-    SET Embedding = AI_GENERATE_EMBEDDINGS(Chunk USE MODEL [text-embedding-3-large])
+    SET Embedding = AI_GENERATE_EMBEDDINGS(Chunk USE MODEL [text-embedding-3-large] PARAMETERS @p)
     WHERE Id = @ReviewVectorId
       AND Chunk IS NOT NULL
       AND Embedding IS NULL;

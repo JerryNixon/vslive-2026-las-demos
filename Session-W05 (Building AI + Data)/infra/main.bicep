@@ -17,6 +17,10 @@ var dbName      = 'AiDemoDb'
 var storageName = 'stw05${suffix}'
 var aspName     = 'asp-w05-${suffix}'
 var funcName    = 'func-w05-${suffix}'
+var acrName     = 'acrw05${suffix}'
+var caeName     = 'cae-w05-${suffix}'
+var lawName     = 'law-w05-${suffix}'
+var dabAppName  = 'ca-dab-api'
 
 // ════════════════════════════════
 //  SQL Server
@@ -105,6 +109,95 @@ resource func 'Microsoft.Web/sites@2023-01-01' = {
 }
 
 // ════════════════════════════════
+//  Container Registry (Basic)
+// ════════════════════════════════
+
+resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
+  name: acrName
+  location: location
+  sku: { name: 'Basic' }
+  properties: { adminUserEnabled: true }
+}
+
+// ════════════════════════════════
+//  Log Analytics (required by ACA)
+// ════════════════════════════════
+
+resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
+  name: lawName
+  location: location
+  properties: {
+    sku: { name: 'PerGB2018' }
+    retentionInDays: 30
+  }
+}
+
+// ════════════════════════════════
+//  Container Apps Environment
+// ════════════════════════════════
+
+resource cae 'Microsoft.App/managedEnvironments@2023-05-01' = {
+  name: caeName
+  location: location
+  properties: {
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: logAnalytics.properties.customerId
+        sharedKey: logAnalytics.listKeys().primarySharedKey
+      }
+    }
+  }
+}
+
+// ════════════════════════════════
+//  DAB Container App (placeholder — updated by azure-up.ps1)
+// ════════════════════════════════
+
+resource dabApp 'Microsoft.App/containerApps@2023-05-01' = {
+  name: dabAppName
+  location: location
+  properties: {
+    managedEnvironmentId: cae.id
+    configuration: {
+      ingress: {
+        external: true
+        targetPort: 5000
+        transport: 'auto'
+      }
+      secrets: [
+        {
+          name: 'db-conn-string'
+          value: 'Server=${sql.properties.fullyQualifiedDomainName};Database=${dbName};User Id=${sqlAdminLogin};Password=${sqlAdminPassword};TrustServerCertificate=true;Encrypt=true;'
+        }
+      ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'dab-api'
+          image: 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+          resources: {
+            cpu: json('0.25')
+            memory: '0.5Gi'
+          }
+          env: [
+            {
+              name: 'DATABASE_CONNECTION_STRING'
+              secretRef: 'db-conn-string'
+            }
+          ]
+        }
+      ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 1
+      }
+    }
+  }
+}
+
+// ════════════════════════════════
 //  Outputs
 // ════════════════════════════════
 
@@ -113,3 +206,6 @@ output SQL_SERVER_NAME string = sql.name
 output DB_NAME string = dbName
 output FUNC_APP_NAME string = func.name
 output STORAGE_NAME string = storage.name
+output ACR_NAME string = acr.name
+output ACR_LOGIN_SERVER string = acr.properties.loginServer
+output DAB_ENDPOINT_URL string = 'https://${dabApp.properties.configuration.ingress.fqdn}'

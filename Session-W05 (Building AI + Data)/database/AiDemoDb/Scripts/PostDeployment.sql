@@ -1,3 +1,7 @@
+-- Create ReviewVector table (VECTOR type not supported by DacFx, deployed as raw SQL)
+:r ..\Tables\ReviewVector.sql
+GO
+
 -- Seed data: Categories, Products, Customers, Reviews (Star Trek toy shop)
 
 -- ═══════════════════════════════════════════════════════════════
