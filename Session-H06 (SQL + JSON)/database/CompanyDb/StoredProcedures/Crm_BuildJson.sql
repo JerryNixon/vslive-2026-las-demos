@@ -1,14 +1,14 @@
 /*
-    Crm_05_BuildJson
-    ────────────────
+    Crm_BuildJson
+    ─────────────
     Builds the JSON payload for a single contact from the CompanyDb
     relational tables, exactly as DAB REST expects it for a PATCH.
 
     Shows: relational data → JSON using FOR JSON PATH.
 
-    EXEC dbo.Crm_05_BuildJson @ContactId = 1;
+    EXEC dbo.Crm_BuildJson @ContactId = 1;
 */
-CREATE OR ALTER PROCEDURE dbo.Crm_05_BuildJson
+CREATE OR ALTER PROCEDURE dbo.Crm_BuildJson
     @ContactId INT
 AS
 BEGIN

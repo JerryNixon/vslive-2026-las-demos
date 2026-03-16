@@ -18,24 +18,24 @@ BEGIN
     PRINT '══════════════════════════════════════';
     PRINT '  Step 1: Fetch from CRM via GraphQL';
     PRINT '══════════════════════════════════════';
-    EXEC dbo.Crm_01_Fetch @DabEndpointUrl = @DabEndpointUrl, @First = @First;
+    EXEC dbo.Crm_Fetch @DabEndpointUrl = @DabEndpointUrl, @First = @First;
 
     PRINT '';
     PRINT '══════════════════════════════════════';
     PRINT '  Step 2: Parse contacts (OPENJSON)';
     PRINT '══════════════════════════════════════';
-    EXEC dbo.Crm_02_ParseContacts;
+    EXEC dbo.Crm_ParseContacts;
 
     PRINT '';
     PRINT '══════════════════════════════════════';
     PRINT '  Step 3: Parse addresses (CROSS APPLY)';
     PRINT '══════════════════════════════════════';
-    EXEC dbo.Crm_03_ParseAddresses;
+    EXEC dbo.Crm_ParseAddresses;
 
     PRINT '';
     PRINT '══════════════════════════════════════';
     PRINT '  Step 4: Import into CompanyDb (MERGE)';
     PRINT '══════════════════════════════════════';
-    EXEC dbo.Crm_04_Import;
+    EXEC dbo.Crm_Import;
 END
 GO

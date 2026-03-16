@@ -5,6 +5,7 @@
     <DSP>Microsoft.Data.Tools.Schema.Sql.SqlAzureV12DatabaseSchemaProvider</DSP>
     <ModelCollation>1033, CI</ModelCollation>
     <IsPackable>false</IsPackable>
+    <ProjectGuid>{00000000-0000-0000-0000-000000000000}</ProjectGuid>
   </PropertyGroup>
   <ItemGroup>
     <PostDeploy Include="Scripts\PostDeployment.sql" />
@@ -12,12 +13,12 @@
   <ItemGroup>
     <!-- Deployed via PostDeployment.sql (uses Azure SQL-specific sp_invoke_external_rest_endpoint) -->
     <None Include="StoredProcedures\Crm_ImportAll.sql" />
-    <None Include="StoredProcedures\Crm_01_Fetch.sql" />
-    <None Include="StoredProcedures\Crm_02_ParseContacts.sql" />
-    <None Include="StoredProcedures\Crm_03_ParseAddresses.sql" />
-    <None Include="StoredProcedures\Crm_04_Import.sql" />
-    <None Include="StoredProcedures\Crm_05_BuildJson.sql" />
-    <None Include="StoredProcedures\Crm_06_PushToCrm.sql" />
+    <None Include="StoredProcedures\Crm_Fetch.sql" />
+    <None Include="StoredProcedures\Crm_ParseContacts.sql" />
+    <None Include="StoredProcedures\Crm_ParseAddresses.sql" />
+    <None Include="StoredProcedures\Crm_Import.sql" />
+    <None Include="StoredProcedures\Crm_BuildJson.sql" />
+    <None Include="StoredProcedures\Crm_PushToCrm.sql" />
     <None Include="StoredProcedures\Crm_RunAll.sql" />
   </ItemGroup>
 </Project>

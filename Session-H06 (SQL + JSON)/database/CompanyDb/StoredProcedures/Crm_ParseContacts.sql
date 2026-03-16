@@ -1,12 +1,12 @@
 /*
-    Crm_02_ParseContacts
-    ────────────────────
-    Reads raw JSON from dbo.CrmRawJson (populated by Crm_01_Fetch)
+    Crm_ParseContacts
+    ─────────────────
+    Reads raw JSON from dbo.CrmRawJson (populated by Crm_Fetch)
     and shreds it into contact rows using OPENJSON.
 
-    EXEC dbo.Crm_02_ParseContacts;
+    EXEC dbo.Crm_ParseContacts;
 */
-CREATE OR ALTER PROCEDURE dbo.Crm_02_ParseContacts
+CREATE OR ALTER PROCEDURE dbo.Crm_ParseContacts
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -15,7 +15,7 @@ BEGIN
 
     IF @json IS NULL
     BEGIN
-        THROW 50002, N'No data in CrmRawJson. Run Crm_01_Fetch first.', 1;
+        THROW 50002, N'No data in CrmRawJson. Run Crm_Fetch first.', 1;
     END
 
     SELECT

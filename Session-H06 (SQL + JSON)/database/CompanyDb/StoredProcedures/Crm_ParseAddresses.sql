@@ -1,15 +1,15 @@
 /*
-    Crm_03_ParseAddresses
-    ─────────────────────
-    Reads raw JSON from dbo.CrmRawJson (populated by Crm_01_Fetch)
+    Crm_ParseAddresses
+    ──────────────────
+    Reads raw JSON from dbo.CrmRawJson (populated by Crm_Fetch)
     and shreds the nested addresses using OPENJSON + CROSS APPLY.
 
     This is the key demo step: showing how CROSS APPLY handles
     the one-to-many nesting (each contact has N addresses).
 
-    EXEC dbo.Crm_03_ParseAddresses;
+    EXEC dbo.Crm_ParseAddresses;
 */
-CREATE OR ALTER PROCEDURE dbo.Crm_03_ParseAddresses
+CREATE OR ALTER PROCEDURE dbo.Crm_ParseAddresses
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -18,7 +18,7 @@ BEGIN
 
     IF @json IS NULL
     BEGIN
-        THROW 50003, N'No data in CrmRawJson. Run Crm_01_Fetch first.', 1;
+        THROW 50003, N'No data in CrmRawJson. Run Crm_Fetch first.', 1;
     END
 
     SELECT

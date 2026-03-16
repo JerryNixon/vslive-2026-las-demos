@@ -1,16 +1,16 @@
 /*
-    Crm_06_PushToCrm
-    ────────────────
+    Crm_PushToCrm
+    ─────────────
     Builds JSON from CompanyDb and PATCHes a single contact back
     to CrmDb via the DAB REST endpoint.
 
     Shows: relational → JSON → sp_invoke_external_rest_endpoint → REST PATCH.
 
-    EXEC dbo.Crm_06_PushToCrm
+    EXEC dbo.Crm_PushToCrm
         @DabEndpointUrl = 'https://...',
         @ContactId      = 1;
 */
-CREATE OR ALTER PROCEDURE dbo.Crm_06_PushToCrm
+CREATE OR ALTER PROCEDURE dbo.Crm_PushToCrm
     @DabEndpointUrl NVARCHAR(500),
     @ContactId      INT
 AS

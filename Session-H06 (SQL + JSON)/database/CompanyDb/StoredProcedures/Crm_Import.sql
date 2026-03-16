@@ -1,14 +1,14 @@
 /*
-    Crm_04_Import
-    ─────────────
-    Reads raw JSON from dbo.CrmRawJson (populated by Crm_01_Fetch)
+    Crm_Import
+    ──────────
+    Reads raw JSON from dbo.CrmRawJson (populated by Crm_Fetch)
     and MERGE-imports contacts + addresses into CompanyDb tables.
 
     Uses MERGE so you can run it multiple times without duplicates.
 
-    EXEC dbo.Crm_04_Import;
+    EXEC dbo.Crm_Import;
 */
-CREATE OR ALTER PROCEDURE dbo.Crm_04_Import
+CREATE OR ALTER PROCEDURE dbo.Crm_Import
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -17,7 +17,7 @@ BEGIN
 
     IF @json IS NULL
     BEGIN
-        THROW 50004, N'No data in CrmRawJson. Run Crm_01_Fetch first.', 1;
+        THROW 50004, N'No data in CrmRawJson. Run Crm_Fetch first.', 1;
     END
 
     -- Parse contacts

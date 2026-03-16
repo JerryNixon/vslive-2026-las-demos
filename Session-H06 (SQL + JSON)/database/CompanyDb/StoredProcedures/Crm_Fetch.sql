@@ -1,12 +1,12 @@
 /*
-    Crm_01_Fetch
-    ────────────
+    Crm_Fetch
+    ─────────
     Calls DAB's GraphQL endpoint and stores the raw JSON in dbo.CrmRawJson.
     All subsequent Crm_* procs read from that staging table.
 
-    EXEC dbo.Crm_01_Fetch @DabEndpointUrl = 'https://...', @First = 3;
+    EXEC dbo.Crm_Fetch @DabEndpointUrl = 'https://...', @First = 3;
 */
-CREATE OR ALTER PROCEDURE dbo.Crm_01_Fetch
+CREATE OR ALTER PROCEDURE dbo.Crm_Fetch
     @DabEndpointUrl NVARCHAR(500),
     @First          INT = NULL          -- NULL = all contacts
 AS
