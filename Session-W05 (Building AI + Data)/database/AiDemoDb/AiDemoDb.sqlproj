@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" Sdk="Microsoft.Build.Sql/2.0.0">
+  <PropertyGroup>
+    <Name>AiDemoDb</Name>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.SqlAzureV12DatabaseSchemaProvider</DSP>
+    <ModelCollation>1033, CI</ModelCollation>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PostDeploy Include="Scripts\PostDeployment.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Azure SQL-specific objects deployed separately by azure-up.ps1 -->
+    <None Include="Scripts\CreateReviewVector.sql" />
+    <None Include="Scripts\CreateExternalModel.sql" />
+    <None Include="StoredProcedures\ChunkReviews.sql" />
+    <None Include="StoredProcedures\EmbedReviews.sql" />
+    <None Include="StoredProcedures\EmbedSingleReview.sql" />
+    <None Include="StoredProcedures\ToggleChangeTracking.sql" />
+    <None Include="StoredProcedures\ToggleVectorIndex.sql" />
+    <None Include="StoredProcedures\SearchByVector.sql" />
+    <None Include="StoredProcedures\SearchByText.sql" />    <None Include="StoredProcedures\\ResetDemo.sql" />    <None Include="Triggers\ReviewChanged.sql" />
+    <None Include="Views\ReviewsPendingEmbedding.sql" />
+  </ItemGroup>
+</Project>

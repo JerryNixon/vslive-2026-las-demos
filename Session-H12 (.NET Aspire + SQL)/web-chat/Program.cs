@@ -4,6 +4,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 var config = AiChatConfig.FromConfiguration(builder.Configuration);
 builder.Services.AddAiChatClient(config);
+// 2x headroom over MaxTotalChars to account for JSON framing (keys, quotes, arrays) and multi-byte UTF-8 chars
 builder.WebHost.ConfigureKestrel(k => k.Limits.MaxRequestBodySize = config.MaxTotalChars * 2);
 
 var app = builder.Build();

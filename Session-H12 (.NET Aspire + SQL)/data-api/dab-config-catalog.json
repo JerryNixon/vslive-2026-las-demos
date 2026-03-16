@@ -4,6 +4,11 @@
     "database-type": "mssql",
     "connection-string": "@env('CATALOG_CONNECTION_STRING')"
   },
+  "runtime": {
+    "mcp": {
+      "enabled": true
+    }
+  },
   "entities": {
     "Category": {
       "description": "Product categories for Star Trek ship models",
@@ -64,6 +69,28 @@
         "parameters": [],
         "key-fields": []
       },
+      "fields": [
+        {
+          "name": "ProductId",
+          "description": "Unique identifier for the product",
+          "primary-key": true
+        },
+        {
+          "name": "Name",
+          "description": "Display name of the ship model",
+          "primary-key": false
+        },
+        {
+          "name": "CategoryId",
+          "description": "Foreign key to the Category table",
+          "primary-key": false
+        },
+        {
+          "name": "Price",
+          "description": "Price of the ship model in USD",
+          "primary-key": false
+        }
+      ],
       "graphql": {
         "enabled": true,
         "type": {

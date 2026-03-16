@@ -2,11 +2,10 @@
   "$schema": "https://github.com/Azure/data-api-builder/releases/latest/download/dab.draft.schema.json",
   "data-source": {
     "database-type": "mssql",
-    "connection-string": "@env('CATALOG_CONNECTION_STRING')"
+    "connection-string": "@env('INVENTORY_CONNECTION_STRING')"
   },
   "data-source-files": [
-    "dab-config-catalog.json",
-    "dab-config-inventory.json"
+    "dab-config-catalog.json"
   ],
   "runtime": {
     "rest": {
@@ -37,5 +36,51 @@
       }
     }
   },
-  "entities": {}
+  "entities": {
+    "Warehouse": {
+      "source": "dbo.Warehouse",
+      "description": "Warehouse locations that store inventory",
+      "fields": [
+        { "name": "WarehouseId", "description": "Unique identifier for the warehouse", "primary-key": true },
+        { "name": "Name", "description": "Name of the warehouse", "primary-key": false },
+        { "name": "Location", "description": "Geographic location of the warehouse", "primary-key": false }
+      ],
+      "rest": true,
+      "graphql": true,
+      "permissions": [
+        { "role": "anonymous", "actions": ["read"] }
+      ],
+      "relationships": {
+        "inventory": {
+          "cardinality": "many",
+          "target.entity": "Inventory",
+          "source.fields": ["WarehouseId"],
+          "target.fields": ["WarehouseId"]
+        }
+      }
+    },
+    "Inventory": {
+      "source": "dbo.Inventory",
+      "description": "Stock levels of products at each warehouse",
+      "fields": [
+        { "name": "InventoryId", "description": "Unique identifier for the inventory record", "primary-key": true },
+        { "name": "ProductId", "description": "Foreign key to the Product in the catalog database", "primary-key": false },
+        { "name": "WarehouseId", "description": "Foreign key to the Warehouse table", "primary-key": false },
+        { "name": "Quantity", "description": "Number of units in stock at this warehouse", "primary-key": false }
+      ],
+      "rest": true,
+      "graphql": true,
+      "permissions": [
+        { "role": "anonymous", "actions": ["*"] }
+      ],
+      "relationships": {
+        "warehouse": {
+          "cardinality": "one",
+          "target.entity": "Warehouse",
+          "source.fields": ["WarehouseId"],
+          "target.fields": ["WarehouseId"]
+        }
+      }
+    }
+  }
 }

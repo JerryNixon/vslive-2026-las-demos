@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat</title>
+    <!-- Zero-dependency markdown: no external scripts needed -->
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { font-size: 150%; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
         header { background: #16213e; padding: 12px 20px; border-bottom: 1px solid #0f3460; display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
         header h1 { font-size: 16px; font-weight: 600; color: #e94560; }
@@ -18,7 +20,15 @@
         .msg { max-width: 80%; padding: 10px 14px; border-radius: 12px; line-height: 1.5; font-size: 14px; word-wrap: break-word; }
         .msg.user { align-self: flex-end; background: #0f3460; color: #fff; border-bottom-right-radius: 4px; white-space: pre-wrap; }
         .msg.assistant { align-self: flex-start; background: #16213e; border: 1px solid #0f3460; border-bottom-left-radius: 4px; }
-        .msg.assistant .content { white-space: pre-wrap; }
+        .msg.assistant .content { line-height: 1.6; }
+        .msg.assistant .content p { margin: 0.4em 0; }
+        .msg.assistant .content table { border-collapse: collapse; margin: 0.5em 0; width: 100%; }
+        .msg.assistant .content th, .msg.assistant .content td { border: 1px solid #0f3460; padding: 4px 8px; text-align: left; }
+        .msg.assistant .content th { background: #0f3460; color: #fff; }
+        .msg.assistant .content code { background: #111827; padding: 1px 4px; border-radius: 3px; font-size: 0.9em; }
+        .msg.assistant .content pre { background: #111827; padding: 8px; border-radius: 6px; overflow-x: auto; margin: 0.5em 0; }
+        .msg.assistant .content ul, .msg.assistant .content ol { margin: 0.4em 0 0.4em 1.2em; }
+        .msg.assistant .content strong { color: #e94560; }
         .msg.thinking { align-self: flex-start; background: #16213e; border: 1px solid #333; color: #666; font-style: italic; white-space: pre-wrap; }
         details.think-block { margin: 4px 0; border: 1px solid #333; border-radius: 6px; padding: 4px 8px; background: #111827; }
         details.think-block summary { cursor: pointer; color: #666; font-size: 12px; font-style: italic; user-select: none; }
@@ -72,7 +82,48 @@
             return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         }
 
+        // Zero-dependency markdown → HTML (handles what the model actually produces)
+        function md(text) {
+            // Tables: header | sep | rows
+            text = text.replace(/^(\|.+\|)\r?\n(\|[\s:|-]+\|)\r?\n((?:\|.+\|\r?\n?)+)/gm, function(_, hdr, sep, body) {
+                const cols = hdr.split('|').filter(c => c.trim());
+                const aligns = sep.split('|').filter(c => c.trim()).map(c =>
+                    /:-+:/.test(c) ? 'center' : /-+:/.test(c) ? 'right' : 'left');
+                const th = cols.map((c, i) =>
+                    `<th style="text-align:${aligns[i]||'left'}">${c.trim()}</th>`).join('');
+                const rows = body.trim().split('\n').map(r => {
+                    const cells = r.split('|').filter(c => c.trim());
+                    return '<tr>' + cells.map((c, i) =>
+                        `<td style="text-align:${aligns[i]||'left'}">${c.trim()}</td>`).join('') + '</tr>';
+                }).join('');
+                return `<table><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table>`;
+            });
+            // Bold **text**
+            text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            // Italic *text*
+            text = text.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+            // Inline code `text`
+            text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+            // Unordered lists
+            text = text.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
+            text = text.replace(/((?:<li>.*<\/li>\s*)+)/g, '<ul>$1</ul>');
+            // Line breaks → paragraphs
+            text = text.split(/\n{2,}/).map(p => p.trim()).filter(Boolean)
+                .map(p => p.startsWith('<table') || p.startsWith('<ul') ? p : `<p>${p}</p>`).join('');
+            // Single newlines within paragraphs → <br>
+            text = text.replace(/([^>])\n([^<])/g, '$1<br>$2');
+            return text;
+        }
+
         function renderContent(text) {
+            // Strip raw JSON tool-call payloads (single-line and multi-line)
+            text = text.replace(/^\s*\{[^{}]*("entity"|"keys"|"fields"|"toolName"|"status"|"cursor"|"isError"|"result"|"content")[^{}]*\}\s*$/gm, '').trim();
+            // Strip multi-line JSON blocks (nested braces) that look like MCP envelopes
+            text = text.replace(/^\s*\{[\s\S]*?("isError"\s*:|"type"\s*:\s*"response"|"status"\s*:\s*"success")[\s\S]*?\}\s*$/gm, '').trim();
+            // Strip narration about tool-call mechanics
+            text = text.replace(/^.*(?:The\s+create_record\s+call|resending\s+correctly|How\s+to\s+interpret|had\s+to\s+be\s+sent).*$/gim, '').trim();
+            // Collapse leftover blank lines
+            text = text.replace(/\n{3,}/g, '\n\n').trim();
             // Split on <think>...</think> blocks
             const parts = text.split(/(<think>[\s\S]*?<\/think>)/g);
             let html = '';
@@ -80,8 +131,8 @@
                 const m = part.match(/^<think>([\s\S]*?)<\/think>$/);
                 if (m) {
                     html += `<details class="think-block"><summary>💭 Thinking…</summary><div class="think-content">${escHtml(m[1].trim())}</div></details>`;
-                } else if (part) {
-                    html += `<span class="content">${escHtml(part)}</span>`;
+                } else if (part.trim()) {
+                    html += `<span class="content">${md(part)}</span>`;
                 }
             }
             return html;
@@ -121,7 +172,14 @@
                 thinking.remove();
 
                 const data = await res.json();
-                addMessage('assistant', renderContent(data.answer), true);
+                // Strip <think> blocks from history so the model doesn't see its own reasoning in future turns
+                const cleanAnswer = data.answer.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+                messages.push({ role: 'assistant', content: cleanAnswer });
+                const el = document.createElement('div');
+                el.className = 'msg assistant';
+                el.innerHTML = renderContent(data.answer);
+                msgDiv.appendChild(el);
+                msgDiv.scrollTop = msgDiv.scrollHeight;
             } catch (e) {
                 thinking.remove();
                 addMessage('assistant', `Error: ${e.message}`);
@@ -132,7 +190,7 @@
         }
 
         sendBtn.addEventListener('click', send);
-        input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+        input.addEventListener('keydown', e => { if (e.key === 'Enter' && !sendBtn.disabled) send(); });
     </script>
 </body>
 </html>

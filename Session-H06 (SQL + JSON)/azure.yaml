@@ -1,0 +1,11 @@
+name: session-h06
+hooks:
+  postprovision:
+    shell: pwsh
+    run: ./scripts/post-provision.ps1
+    interactive: true
+    continueOnError: false
+infra:
+  provider: bicep
+  path: ./infra
+  module: main
