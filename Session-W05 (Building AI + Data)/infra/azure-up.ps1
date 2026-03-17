@@ -112,10 +112,9 @@ Write-Host "  DAB: $dabUrl" -ForegroundColor Gray
 Write-Host "  Function: $funcApp" -ForegroundColor Gray
 
 # ── 3. Firewall rule ───────────────────────────────────
-Write-Host "[3/9] Adding firewall rule..." -ForegroundColor Cyan
-$myIp = (Invoke-RestMethod -Uri 'https://api.ipify.org' -TimeoutSec 10)
+Write-Host "[3/9] Opening firewall..." -ForegroundColor Cyan
 az sql server firewall-rule create --resource-group $ResourceGroup --server $sqlName `
-    --name "ClientIP" --start-ip-address $myIp --end-ip-address $myIp --output none
+    --name "AllowAll" --start-ip-address 0.0.0.0 --end-ip-address 255.255.255.255 --output none
 
 # ── 4. Deploy schema + seed data via sqlpackage ───────
 Write-Host "[4/9] Building + deploying database schema..." -ForegroundColor Cyan

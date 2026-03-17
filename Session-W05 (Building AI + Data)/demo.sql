@@ -16,7 +16,6 @@ EXEC dbo.ResetDemo;
 -- 1. Explore the seed data
 -- ═══════════════════════════════════════════════════════════
 
-SELECT * FROM dbo.Category;
 SELECT * FROM dbo.Product;
 SELECT * FROM dbo.Customer;
 SELECT * FROM dbo.Review;
@@ -63,6 +62,7 @@ SELECT * FROM dbo.ReviewVector;
  
 EXEC dbo.ChunkReviews @BatchSize = 5;
 SELECT * FROM dbo.ReviewVector;
+SELECT ReviewText FROM dbo.Review where ReviewId = 1;
 
 -- ═══════════════════════════════════════════════════════════
 -- 3. Embed a single chunk via Azure OpenAI REST call

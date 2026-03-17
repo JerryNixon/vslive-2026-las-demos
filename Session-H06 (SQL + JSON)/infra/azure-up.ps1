@@ -55,11 +55,10 @@ Write-Host "  SQL Server: $sqlServerFqdn" -ForegroundColor Gray
 Write-Host "  ACR:        $acrLoginServer" -ForegroundColor Gray
 Write-Host "  DAB URL:    $dabEndpointUrl" -ForegroundColor Gray
 
-# Step 3: Add client IP to firewall + deploy CrmDb
-Write-Host "[3/7] Adding firewall rule + deploying CrmDb..." -ForegroundColor Cyan
-$myIp = (Invoke-RestMethod -Uri 'https://api.ipify.org' -TimeoutSec 10)
+# Step 3: Open firewall for demo + deploy CrmDb
+Write-Host "[3/7] Opening firewall + deploying CrmDb..." -ForegroundColor Cyan
 az sql server firewall-rule create --resource-group $ResourceGroup --server $sqlServerName `
-    --name "ClientIP" --start-ip-address $myIp --end-ip-address $myIp --output none
+    --name "AllowAll" --start-ip-address 0.0.0.0 --end-ip-address 255.255.255.255 --output none
 
 dotnet build "$sessionDir/database/CrmDb/CrmDb.sqlproj" --nologo -v quiet
 $crmConn = "Server=$sqlServerFqdn;Database=CrmDb;User Id=$SqlAdminLogin;Password=$SqlAdminPassword;TrustServerCertificate=true;Encrypt=true;"

@@ -12,7 +12,7 @@
 -- 0. The CRM database — contacts and addresses
 -- ═══════════════════════════════════════════════════════════
 
-USE CrmDb;
+EXEC ResetDemo;
 GO
 
 SELECT * FROM dbo.Contact;
@@ -79,15 +79,20 @@ REVERT;
 */
 
 USE CompanyDb;
+EXEC ResetDemo;
 GO
 
 -- CompanyDb is empty before import
 SELECT COUNT(*) AS Contacts FROM dbo.Contact;
 SELECT COUNT(*) AS Addresses FROM dbo.[Address];
 
+-- GraphQL at https://ca-dab-api.agreeablesky-bf194cf3.westus2.azurecontainerapps.io/graphql
+-- GraphQL at https://ca-dab-api.agreeablesky-bf194cf3.westus2.azurecontainerapps.io/graphql?query=%7B%20contacts%20%7B%20items%20%7B%20ContactId%20FirstName%20LastName%20SSN%20addresses%20%7B%20items%20%7B%20Street%20City%20State%20ZipCode%20%7D%20%7D%20%7D%20%7D%7D
+
 -- Fetch first 3 contacts from CRM via GraphQL
+DECLARE @url NVARCHAR(500) = 'https://ca-dab-api.agreeablesky-bf194cf3.westus2.azurecontainerapps.io';
 EXEC dbo.Crm_Fetch
-    @DabEndpointUrl = 'https://ca-dab-api.wonderfulplant-f63acab2.westus2.azurecontainerapps.io',
+    @DabEndpointUrl = @url,
     @First = 3;
 
 -- ═══════════════════════════════════════════════════════════
@@ -95,39 +100,38 @@ EXEC dbo.Crm_Fetch
 -- ═══════════════════════════════════════════════════════════
 
 /*  OPENJSON — shred a JSON array into relational rows
+*/
 
-    SELECT ContactId, FirstName, LastName
+-- Raw JSON in staging table
+DECLARE @json NVARCHAR(MAX) 
+    = (SELECT RawJson FROM dbo.CrmRawJson);
+
+SELECT @json;
+
+SELECT JSON_QUERY(@json, '$.data.contacts.items[0]') AS FirstContact FROM dbo.CrmRawJson;
+
+SELECT JSON_VALUE(@json, '$.data.contacts.items[0].FirstName') AS FirstName;
+
+SELECT ContactId, FirstName, LastName
     FROM OPENJSON(@json, '$.data.contacts.items')
     WITH (
         ContactId INT '$.ContactId',
         FirstName NVARCHAR(100) '$.FirstName',
         LastName  NVARCHAR(100) '$.LastName'
     );
-*/
 
--- Raw JSON in staging table
-SELECT LEFT(RawJson, 500) AS JsonPreview FROM dbo.CrmRawJson;
+SELECT c.ContactId, a.Street, a.City
+FROM OPENJSON(@json, '$.data.contacts.items') WITH (
+    ContactId INT '$.ContactId',
+    addresses NVARCHAR(MAX) '$.addresses' AS JSON
+) c
+CROSS APPLY OPENJSON(c.addresses, '$.items') WITH (
+    Street NVARCHAR(200) '$.Street',
+    City   NVARCHAR(100) '$.City'
+) a;
 
 -- Parse contacts
 EXEC dbo.Crm_ParseContacts;
-
--- ═══════════════════════════════════════════════════════════
--- 5. Parse nested JSON — CROSS APPLY OPENJSON for addresses
--- ═══════════════════════════════════════════════════════════
-
-/*  CROSS APPLY OPENJSON — shred one-to-many nested arrays
-
-    SELECT c.ContactId, a.Street, a.City
-    FROM OPENJSON(@json, '$.data.contacts.items') WITH (
-        ContactId INT '$.ContactId',
-        addresses NVARCHAR(MAX) '$.addresses' AS JSON
-    ) c
-    CROSS APPLY OPENJSON(c.addresses, '$.items') WITH (
-        Street NVARCHAR(200) '$.Street',
-        City   NVARCHAR(100) '$.City'
-    ) a;
-*/
-
 EXEC dbo.Crm_ParseAddresses;
 
 -- ═══════════════════════════════════════════════════════════
@@ -135,11 +139,6 @@ EXEC dbo.Crm_ParseAddresses;
 -- ═══════════════════════════════════════════════════════════
 
 /*  MERGE — idempotent upsert (insert or update)
-
-    MERGE dbo.Contact AS tgt
-    USING #Contacts AS src ON tgt.ContactId = src.ContactId
-    WHEN MATCHED THEN UPDATE SET ...
-    WHEN NOT MATCHED THEN INSERT ...;
 */
 
 EXEC dbo.Crm_Import;
@@ -151,8 +150,9 @@ SELECT ContactId, FirstName, LastName, SSN, ImportedOn FROM dbo.Contact;
 -- 7. Full import — all 50 contacts
 -- ═══════════════════════════════════════════════════════════
 
+DECLARE @url NVARCHAR(500) = 'https://ca-dab-api.agreeablesky-bf194cf3.westus2.azurecontainerapps.io';
 EXEC dbo.Crm_Fetch
-    @DabEndpointUrl = 'https://ca-dab-api.wonderfulplant-f63acab2.westus2.azurecontainerapps.io';
+    @DabEndpointUrl = @url;
 EXEC dbo.Crm_Import;
 SELECT COUNT(*) AS Contacts FROM dbo.Contact;
 
@@ -165,9 +165,8 @@ SELECT * FROM dbo.ContactsWithAddresses WHERE ContactId <= 3;
 
 /*  FOR JSON PATH — build JSON from relational data
 
-    SELECT FirstName, LastName, Email, Phone
+    SELECT TOP 1 FirstName, LastName, Email, Phone
     FROM dbo.Contact
-    WHERE ContactId = @ContactId
     FOR JSON PATH, WITHOUT_ARRAY_WRAPPER;
 */
 
@@ -185,8 +184,9 @@ EXEC dbo.Crm_BuildJson @ContactId = 1;
     relational → JSON → REST PATCH → CRM updated
 */
 
+DECLARE @url NVARCHAR(500) = 'https://ca-dab-api.agreeablesky-bf194cf3.westus2.azurecontainerapps.io';
 EXEC dbo.Crm_PushToCrm
-    @DabEndpointUrl = 'https://ca-dab-api.wonderfulplant-f63acab2.westus2.azurecontainerapps.io',
+    @DabEndpointUrl = @url,
     @ContactId = 1;
 
 -- Verify: CRM has the updated email
