@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "AgentsConsole": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "FOUNDRY_ENDPOINT": "https://jnixon-openai.cognitiveservices.azure.com",
+        "FOUNDRY_API_KEY": "YOUR_API_KEY_HERE",
+        "FOUNDRY_MODEL": "gpt-4o-mini"
+      }
+    }
+  }
+}

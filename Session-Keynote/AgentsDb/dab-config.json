@@ -1,0 +1,77 @@
+{
+  "$schema": "https://github.com/Azure/data-api-builder/releases/latest/download/dab.draft.schema.json",
+  "data-source": {
+    "database-type": "mssql",
+    "connection-string": "@env('DATABASE_CONNECTION_STRING')"
+  },
+  "runtime": {
+    "rest": { "enabled": false },
+    "graphql": { "enabled": false },
+    "host": {
+      "mode": "development",
+      "cors": { "origins": ["*"], "allow-credentials": false }
+    },
+    "mcp": { "enabled": true }
+  },
+  "entities": {
+    "Category": {
+      "description": "Product categories. Fields: CategoryId, Name.",
+      "source": { "object": "dbo.Category", "type": "table" },
+      "fields": [
+        { "name": "CategoryId", "description": "Unique identifier for the category", "primary-key": true },
+        { "name": "Name", "description": "Display name of the category", "primary-key": false }
+      ],
+      "permissions": [{ "role": "anonymous", "actions": [{ "action": "read" }] }],
+      "relationships": {
+        "products": {
+          "cardinality": "many",
+          "target.entity": "Product",
+          "source.fields": ["CategoryId"],
+          "target.fields": ["CategoryId"]
+        }
+      }
+    },
+    "Product": {
+      "description": "Product catalog. Fields: ProductId, Name, CategoryId, Price (list), Cost, Inventory (units on hand). Join to Category on CategoryId.",
+      "source": { "object": "dbo.Product", "type": "table" },
+      "fields": [
+        { "name": "ProductId", "description": "Unique identifier for the product", "primary-key": true },
+        { "name": "Name", "description": "Display name of the product", "primary-key": false },
+        { "name": "CategoryId", "description": "Foreign key to Category", "primary-key": false },
+        { "name": "Price", "description": "List price in USD", "primary-key": false },
+        { "name": "Cost", "description": "Unit cost in USD", "primary-key": false },
+        { "name": "Inventory", "description": "Units currently on hand", "primary-key": false }
+      ],
+      "permissions": [{ "role": "anonymous", "actions": [{ "action": "read" }] }],
+      "relationships": {
+        "category": {
+          "cardinality": "one",
+          "target.entity": "Category",
+          "source.fields": ["CategoryId"],
+          "target.fields": ["CategoryId"]
+        }
+      }
+    },
+    "SalesHistory": {
+      "description": "Transaction log. Fields: Id, ProductId, SaleDate, UnitsSold, UnitPrice (actual), ReturnFlag (1=returned). Last 24 months of sales data. Join to Product on ProductId.",
+      "source": { "object": "dbo.SalesHistory", "type": "table" },
+      "fields": [
+        { "name": "Id", "description": "Unique transaction identifier", "primary-key": true },
+        { "name": "ProductId", "description": "Foreign key to Product", "primary-key": false },
+        { "name": "SaleDate", "description": "Date of the transaction", "primary-key": false },
+        { "name": "UnitsSold", "description": "Quantity sold in this transaction", "primary-key": false },
+        { "name": "UnitPrice", "description": "Actual price charged per unit", "primary-key": false },
+        { "name": "ReturnFlag", "description": "1 if the order was returned, 0 otherwise", "primary-key": false }
+      ],
+      "permissions": [{ "role": "anonymous", "actions": [{ "action": "read" }] }],
+      "relationships": {
+        "product": {
+          "cardinality": "one",
+          "target.entity": "Product",
+          "source.fields": ["ProductId"],
+          "target.fields": ["ProductId"]
+        }
+      }
+    }
+  }
+}
