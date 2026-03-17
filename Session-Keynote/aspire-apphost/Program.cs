@@ -13,7 +13,7 @@ var sqlProj = builder
     .AddSqlProject<Projects.AgentsDb>("sqlproj-AgentsDb")
     .WithReference(agentsDb);
 
-var configFile = new FileInfo(Path.Combine(builder.AppHostDirectory, "..", "AgentsDb", "dab-config.json"));
+var configFile = new FileInfo(Path.Combine(builder.AppHostDirectory, "..", "data-api", "dab-config.json"));
 
 var dabServer = builder
     .AddDataAPIBuilder("keynote-dab", 8012)

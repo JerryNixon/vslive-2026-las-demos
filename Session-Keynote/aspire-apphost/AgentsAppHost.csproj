@@ -23,8 +23,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AgentsDb\AgentsDb.sqlproj" IsAspireProjectResource="true" />
-    <ProjectReference Include="..\AgentsConsole\AgentsConsole.csproj" />
+    <ProjectReference Include="..\database\AgentsDb\AgentsDb.sqlproj" IsAspireProjectResource="true" />
+    <ProjectReference Include="..\console-app\AgentsConsole.csproj" />
   </ItemGroup>
 
 </Project>

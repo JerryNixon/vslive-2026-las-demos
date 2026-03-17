@@ -11,7 +11,7 @@ Two-agent demo: a **Data Agent** queries product/sales data via DAB MCP, then a 
 
 ## Setup
 
-1. Edit `AgentsConsole/Properties/launchSettings.json` and set your Foundry credentials:
+1. Edit `console-app/Properties/launchSettings.json` and set your Foundry credentials:
    - `FOUNDRY_ENDPOINT` — your Azure OpenAI endpoint
    - `FOUNDRY_API_KEY` — your API key
    - `FOUNDRY_MODEL` — deployment name (default: `gpt-4o-mini`)
@@ -28,13 +28,11 @@ Two-agent demo: a **Data Agent** queries product/sales data via DAB MCP, then a 
 
 ## Architecture
 
-```
-AgentsConsole ──► DAB MCP (port 8012) ──► SQL Server (port 8011)
-     │                                         │
-     │                                    AgentsDb
-     ▼                                  (Category, Product,
-  Azure OpenAI                          SalesHistory)
-  (gpt-4o-mini)
+```mermaid
+flowchart LR
+    Console["Console App"] -->|MCP| DAB["Data API Builder"]
+    DAB --> DB[(AgentsDb)]
+    Console -->|Chat API| AI["Azure OpenAI\ngpt-4o-mini"]
 ```
 
 - **Data Agent** — has MCP tools, queries all products + sales, returns raw data
